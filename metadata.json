@@ -1,0 +1,6 @@
+{
+  "name": "Figurinhas Copa 2026",
+  "description": "Registro de figurinhas do álbum da copa do mundo 2026 com marcação de faltantes/repetidas, detecção automatizada de trocas recíprocas perfeitas e chat integrado em tempo real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
