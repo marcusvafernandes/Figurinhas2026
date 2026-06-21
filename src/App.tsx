@@ -827,6 +827,8 @@ export default function App() {
 
       for (let line of lines) {
         line = line.trim();
+        if (!line) continue;
+
         const match = line.match(/^([A-Za-z0-9-]+)\s*:\s*(.*)$/);
         if (match) {
           const teamCode = match[1].toUpperCase();
@@ -872,6 +874,37 @@ export default function App() {
               }
             }
           }
+        } else {
+          // No colon on this line! Try to parse raw sticker codes with explicit team prefixes (like BRA1, CAN2, FWC5)
+          const stickerRegex = /([A-Za-z]+)(\d+)(?:\s*\(\s*(\d+)\s*x?\s*\))?/g;
+          let stickMatch;
+          while ((stickMatch = stickerRegex.exec(line)) !== null) {
+            const letterPrefix = stickMatch[1].toUpperCase();
+            const numStr = stickMatch[2];
+            const qty = stickMatch[3] ? parseInt(stickMatch[3], 10) : 1;
+
+            let stickerId = `${letterPrefix}${parseInt(numStr, 10)}`;
+            if (numStr === '00') {
+              stickerId = '00';
+            }
+
+            if (validStickerIds.has(stickerId)) {
+              parsedStickers.push({ stickerId, quantity: qty });
+            } else {
+              // Try replacing 'FIFA' or 'SPECIAL' prefix with 'FWC' if applicable
+              if (letterPrefix === 'FIFA' || letterPrefix === 'SPECIAL') {
+                const altId = `FWC${parseInt(numStr, 10)}`;
+                if (validStickerIds.has(altId)) {
+                  parsedStickers.push({ stickerId: altId, quantity: qty });
+                  continue;
+                }
+              }
+              invalidCount++;
+              if (ignoredCodes.length < 5) {
+                ignoredCodes.push(`${letterPrefix}${numStr}`);
+              }
+            }
+          }
         }
       }
 
@@ -884,7 +917,97 @@ export default function App() {
         return;
       }
 
-      // We perform database persistence batch writes
+      // Local / Offline Storage integration for Visitor/Demo users
+      if (user.uid.startsWith('demo_')) {
+        const updatedMyStickers = { ...myStickers };
+        if (statusToSet === 'missing') {
+          const importedSet = new Set(parsedStickers.map(item => item.stickerId));
+
+          if (importMode === 'replace') {
+            // Replace mode: listed ones are missing (deleted), and the remaining ones in the album are owned (or kept repeated)
+            for (const s of STICKERS) {
+              const recordId = `${user.uid}_${s.id}`;
+              const current = myStickers[s.id];
+
+              if (importedSet.has(s.id)) {
+                // Delete to default back to missing
+                delete updatedMyStickers[s.id];
+              } else {
+                // Not in missing list -> set to owned status unless it already has repeated status
+                const currentStatus = current?.status;
+                if (currentStatus === 'repeated') {
+                  updatedMyStickers[s.id] = {
+                    id: recordId,
+                    userId: user.uid,
+                    userDisplayName: user.displayName || 'Colecionador',
+                    stickerId: s.id,
+                    status: 'repeated',
+                    quantity: current.quantity || 1,
+                    updatedAt: new Date().toISOString()
+                  };
+                } else {
+                  updatedMyStickers[s.id] = {
+                    id: recordId,
+                    userId: user.uid,
+                    userDisplayName: user.displayName || 'Colecionador',
+                    stickerId: s.id,
+                    status: 'owned',
+                    quantity: 1,
+                    updatedAt: new Date().toISOString()
+                  };
+                }
+              }
+            }
+          } else {
+            // Merge mode: only delete/mark as missing the ones provided in parsedStickers
+            for (const item of parsedStickers) {
+              delete updatedMyStickers[item.stickerId];
+            }
+          }
+        } else {
+          // statusToSet === 'repeated'
+          if (importMode === 'replace') {
+            // Delete existing ones of this status
+            const existingOfStatus = (Object.values(myStickers) as UserSticker[]).filter(us => us.status === statusToSet);
+            for (const es of existingOfStatus) {
+              delete updatedMyStickers[es.stickerId];
+            }
+          }
+
+          // Add/Update keys
+          for (const item of parsedStickers) {
+            const recordId = `${user.uid}_${item.stickerId}`;
+            updatedMyStickers[item.stickerId] = {
+              id: recordId,
+              userId: user.uid,
+              userDisplayName: user.displayName || 'Colecionador',
+              stickerId: item.stickerId,
+              status: statusToSet,
+              quantity: item.quantity,
+              updatedAt: new Date().toISOString()
+};
+          }
+        }
+
+        localStorage.setItem(`copa_stickers_local_${user.uid}`, JSON.stringify(updatedMyStickers));
+        setMyStickers(updatedMyStickers);
+
+        const otherRecords = allStickersRecords.filter(r => r.userId !== user.uid);
+        setAllStickersRecords([...otherRecords, ...Object.values(updatedMyStickers)]);
+
+        const statusLabel = statusToSet === 'repeated' ? 'Repetidas' : 'Faltantes';
+        let message = `Sucesso! Importadas ${parsedStickers.length} figurinhas como "${statusLabel}" (${importMode === 'replace' ? 'Substituindo' : 'Mesclando'} com suas figurinhas anteriores de mesmo tipo) no Modo Visitante.`;
+        if (invalidCount > 0) {
+          message += ` Nota: ${invalidCount} figurinhas (como ${ignoredCodes.join(', ')}${invalidCount > 5 ? '...' : ''}) foram ignoradas pois não pertencem a este álbum oficial.`;
+        }
+
+        setImportResult({ success: true, message });
+        setImportText('');
+        setIsImporting(false);
+        return;
+      }
+
+      // We perform database persistence batch writes for authenticated users
       const batchList: any[] = [];
       let currentBatch = writeBatch(db);
       let opCount = 0;
