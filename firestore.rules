@@ -84,8 +84,7 @@ service cloud.firestore {
       allow update: if isSignedIn() && (existing().userId == request.auth.uid || existing().userId.matches('^demo_.*')) && (incoming().userId == request.auth.uid || incoming().userId.matches('^demo_.*')) && isValidUserSticker(incoming())
         && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'quantity', 'updatedAt', 'userDisplayName']);
       
-      // FIX: Guard against 'resource == null' when deleting a document that does not exist 
-      // in order to prevent "Missing or insufficient permissions" batch-delete failures on import
+      // Safe batch deletion rule (handles merge/replace deletes and checks correct user ownership)
       allow delete: if isSignedIn() && (resource == null || existing().userId == request.auth.uid || stickerRecordId.matches('^demo_.*'));
     }
 

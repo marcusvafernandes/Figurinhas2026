@@ -1839,12 +1839,12 @@ export default function App() {
             <span className="text-2xl" role="img" aria-label="trofeu">🏆</span>
             <div>
               <h1 className="font-extrabold text-base tracking-tight sm:text-lg flex items-center gap-1.5 text-slate-900">
-                Álbum Copa 2026 
+                Álbum Copa do Mundo 2026 
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2' py-0.5 rounded-full border border-emerald-200 font-bold font-mono">
                   TROCA BRASIL
                 </span>
               </h1>
-              <p className="text-[10px] text-slate-500 font-semibold">Encontre trocas perfeitas no seu bairro</p>
+              <p className="text-[10px] text-slate-500 font-semibold">Encontre aquela figurinha que você precisa</p>
             </div>
           </div>
 
@@ -3811,7 +3811,7 @@ export default function App() {
       {/* Aesthetic Footer */}
       <footer className="mt-12 bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-600 font-mono">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 font-semibold">
-          <p>⚽ Matcher de Figurinhas Panini Copa do Mundo Catar-Espanha-Marrocos-América 2026</p>
+          <p>⚽ Copa do Mundo 2026</p>
           <p className="text-[10px] text-slate-500">Conectado via Firebase Firestore Real-Time Stream Cluster</p>
         </div>
       </footer>
