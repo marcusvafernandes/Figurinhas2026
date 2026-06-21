@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Default-deny catch-all rule
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reuseable global helpers (Phase 3 primitives)
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Returns helper for input payload
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Returns helper for existing data if document exists
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 200 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Schema Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'createdAt'])
+        && data.uid is string && data.uid.size() <= 128
+        && data.displayName is string && data.displayName.size() <= 100
+        && data.email is string && data.email.size() <= 150
+        && data.createdAt is timestamp
+        && (!data.keys().contains('whatsapp') || (data.whatsapp is string && data.whatsapp.size() <= 30));
+    }
+
+    function isValidUserSticker(data) {
+      return data.keys().hasAll(['id', 'userId', 'userDisplayName', 'stickerId', 'status', 'quantity', 'updatedAt'])
+        && data.id is string && data.id.size() <= 200
+        && data.userId is string && data.userId.size() <= 128
+        && data.userDisplayName is string && data.userDisplayName.size() <= 100
+        && data.stickerId is string && data.stickerId.size() <= 30
+        && (data.status == 'missing' || data.status == 'repeated' || data.status == 'owned')
+        && data.quantity is int && data.quantity >= 1 && data.quantity <= 100
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidChat(data) {
+      return data.keys().hasAll(['id', 'participants', 'lastMessage', 'lastMessageAt'])
+        && data.id is string && data.id.size() <= 200
+        && data.participants is list && data.participants.size() == 2
+        && data.participants[0] is string && data.participants[1] is string
+        && data.lastMessage is string && data.lastMessage.size() <= 500
+        && data.lastMessageAt is timestamp;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['id', 'chatId', 'senderId', 'senderName', 'text', 'createdAt'])
+        && data.id is string && data.id.size() <= 200
+        && data.chatId is string && data.chatId.size() <= 200
+        && data.senderId is string && data.senderId.size() <= 128
+        && data.senderName is string && data.senderName.size() <= 100
+        && data.text is string && data.text.size() <= 1000
+        && data.createdAt is timestamp;
+    }
+
+    // 2. Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && (request.auth.uid == userId || userId.matches('^demo_.*')) && isValidUser(incoming());
+      allow update: if isSignedIn() && (request.auth.uid == userId || userId.matches('^demo_.*')) && isValidUser(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'whatsapp', 'updatedAt']);
+      allow delete: if isSignedIn() && userId.matches('^demo_.*');
+    }
+
+    // 3. User Stickers Collection
+    match /user_stickers/{stickerRecordId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && (incoming().userId == request.auth.uid || incoming().userId.matches('^demo_.*')) && isValidUserSticker(incoming());
+      allow update: if isSignedIn() && (existing().userId == request.auth.uid || existing().userId.matches('^demo_.*')) && (incoming().userId == request.auth.uid || incoming().userId.matches('^demo_.*')) && isValidUserSticker(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'quantity', 'updatedAt', 'userDisplayName']);
+      
+      // FIX: Guard against 'resource == null' when deleting a document that does not exist 
+      // in order to prevent "Missing or insufficient permissions" batch-delete failures on import
+      allow delete: if isSignedIn() && (resource == null || existing().userId == request.auth.uid || stickerRecordId.matches('^demo_.*'));
+    }
+
+    // 4. Chats Collection
+    match /chats/{chatId} {
+      allow get: if isSignedIn() && (resource == null || request.auth.uid in existing().participants);
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow create: if isSignedIn() && request.auth.uid in incoming().participants && isValidChat(incoming());
+      allow update: if isSignedIn() && request.auth.uid in existing().participants && isValidChat(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastMessageAt', 'lastSenderId']);
+    }
+
+    // 5. Chat Messages Collection
+    match /chats/{chatId}/messages/{messageId} {
+      allow get: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      allow list: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants && (incoming().senderId == request.auth.uid || incoming().senderId.matches('^demo_.*')) && isValidMessage(incoming());
+    }
+  }
+}

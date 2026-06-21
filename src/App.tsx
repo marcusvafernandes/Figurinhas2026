@@ -3038,7 +3038,7 @@ export default function App() {
                                         type="button"
                                         onClick={() => {
                                           if (user) {
-                                            deleteDoc(doc(db, 'users', user.uid, 'stickers', activeSticker.id))
+                                            handleSetStickerStatus(activeSticker.id, 'missing')
                                               .catch(err => console.error("Error resetting sticker status: ", err));
                                           }
                                         }}
