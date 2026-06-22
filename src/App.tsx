@@ -409,6 +409,12 @@ export default function App() {
 
       setAllStickersRecords(finalRecords);
       setMyStickers(finalMyMap);
+      
+      // Dynamically cache public statistics counters for landing page
+      const repeatedCount = finalRecords
+        .filter(r => r.status === 'repeated')
+        .reduce((acc, r) => acc + (Number(r.quantity) || 1), 0);
+      localStorage.setItem('copa_public_stats_repeated', String(Math.max(500, repeatedCount)));
     }, (err) => {
       // Ignore list permission errors if in guest/demo mode
       if (!user.uid.startsWith('demo_')) {
@@ -432,6 +438,10 @@ export default function App() {
         };
       });
       setAllUsers(usersMap);
+      
+      // Dynamically cache public statistics counters for landing page
+      const usersCount = Math.max(5, snapshot.size);
+      localStorage.setItem('copa_public_stats_users', String(usersCount));
     }, (err) => {
       if (!user.uid.startsWith('demo_')) {
         handleFirestoreError(err, OperationType.LIST, 'users');
@@ -470,6 +480,48 @@ export default function App() {
       unsubChats();
     };
   }, [user]);
+
+  // Synchronize dynamic public global system stats in real-time securely
+  useEffect(() => {
+    if (!user || user.uid.startsWith('demo_')) return;
+
+    const usersCount = Object.keys(allUsers).length;
+    if (usersCount === 0 || allStickersRecords.length === 0) return;
+
+    const repeatedCount = allStickersRecords
+      .filter(r => r.status === 'repeated')
+      .reduce((acc, r) => acc + (Number(r.quantity) || 1), 0);
+
+    const docRef = doc(db, 'system_stats', 'global');
+
+    const updateStats = async () => {
+      try {
+        const docSnap = await getDoc(docRef);
+        let needsUpdate = true;
+        if (docSnap.exists()) {
+          const current = docSnap.data();
+          if (current.users === usersCount && current.repeated === repeatedCount) {
+            needsUpdate = false;
+          }
+        }
+        if (needsUpdate) {
+          await setDoc(docRef, {
+            users: usersCount,
+            repeated: repeatedCount,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        }
+      } catch (err) {
+        console.warn("Could not synchronize system_stats/global document:", err);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      updateStats();
+    }, 1500); // stable debounce of 1.5s to batch updates nicely
+
+    return () => clearTimeout(timer);
+  }, [allUsers, allStickersRecords, user]);
 
   // Handle Mark / Change sticker status
   const handleSetStickerStatus = async (stickerId: string, status: 'missing' | 'repeated' | 'owned') => {

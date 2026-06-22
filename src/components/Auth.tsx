@@ -28,40 +28,36 @@ export default function Auth({ onSuccess }: AuthProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showConfigGuide, setShowConfigGuide] = useState(false);
-  const [totals, setTotals] = useState<{ users: number; repeated: number } | null>(null);
-
-  // Real-time general activity stats fetch
-  React.useEffect(() => {
-    const usersRef = collection(db, 'users');
-    const unsubUsers = onSnapshot(usersRef, (snapshot) => {
-      setTotals(prev => ({
-        users: snapshot.size,
-        repeated: prev?.repeated ?? 0
-      }));
-    }, (err) => {
-      console.warn("Could not load public users count:", err);
-    });
-
-    const stickersRef = collection(db, 'user_stickers');
-    const qRepeated = query(stickersRef, where('status', '==', 'repeated'));
-    const unsubStickers = onSnapshot(qRepeated, (snapshot) => {
-      let sum = 0;
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        sum += Number(data.quantity || 1);
-      });
-      setTotals(prev => ({
-        users: prev?.users ?? 0,
-        repeated: sum
-      }));
-    }, (err) => {
-      console.warn("Could not load public repeated stickers count:", err);
-    });
-
-    return () => {
-      unsubUsers();
-      unsubStickers();
+  // Initialize stats using localStorage cached values or base demo seeded numbers if first run
+  const [totals, setTotals] = useState<{ users: number; repeated: number }>(() => {
+    const cachedUsers = localStorage.getItem('copa_public_stats_users');
+    const cachedRepeated = localStorage.getItem('copa_public_stats_repeated');
+    return {
+      users: cachedUsers ? parseInt(cachedUsers, 10) : 5,
+      repeated: cachedRepeated ? parseInt(cachedRepeated, 10) : 500
     };
+  });
+
+  // Real-time general activity stats fetch from the aggregate system stats document
+  React.useEffect(() => {
+    const statsDocRef = doc(db, 'system_stats', 'global');
+    const unsub = onSnapshot(statsDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const liveUsers = Number(data.users || 5);
+        const liveRepeated = Number(data.repeated || 500);
+        setTotals({
+          users: liveUsers,
+          repeated: liveRepeated
+        });
+        localStorage.setItem('copa_public_stats_users', String(liveUsers));
+        localStorage.setItem('copa_public_stats_repeated', String(liveRepeated));
+      }
+    }, (err) => {
+      console.warn("Could not fetch real-time public stats from system_stats (using cache):", err);
+    });
+
+    return () => unsub();
   }, []);
 
   // Helper to ensure user document exists in Firestore
@@ -197,21 +193,13 @@ export default function Auth({ onSuccess }: AuthProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white/90 p-3.5 rounded-xl border border-slate-200/60 flex flex-col shadow-sm">
               <span className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight font-sans">
-                {totals ? (
-                  <span className="animate-fade-in">{totals.users}</span>
-                ) : (
-                  <span className="text-slate-400 text-xs font-semibold animate-pulse">Carregando...</span>
-                )}
+                <span className="animate-fade-in">{totals.users}</span>
               </span>
               <span className="text-[11px] text-slate-500 font-bold mt-1">Colecionadores</span>
             </div>
             <div className="bg-white/90 p-3.5 rounded-xl border border-slate-200/60 flex flex-col shadow-sm">
               <span className="text-2xl md:text-3xl font-black text-emerald-700 tracking-tight font-sans">
-                {totals ? (
-                  <span className="animate-fade-in">{totals.repeated}</span>
-                ) : (
-                  <span className="text-slate-400 text-xs font-semibold animate-pulse">Carregando...</span>
-                )}
+                <span className="animate-fade-in">{totals.repeated}</span>
               </span>
               <span className="text-[11px] text-slate-500 font-bold mt-1">Figurinhas Repetidas</span>
             </div>
