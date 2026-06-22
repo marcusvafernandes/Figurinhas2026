@@ -68,8 +68,8 @@ service cloud.firestore {
 
     // 2. Users Collection
     match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if true;
+      allow list: if true;
       allow create: if isSignedIn() && (request.auth.uid == userId || userId.matches('^demo_.*')) && isValidUser(incoming());
       allow update: if isSignedIn() && (request.auth.uid == userId || userId.matches('^demo_.*')) && isValidUser(incoming())
         && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'whatsapp', 'updatedAt']);
@@ -78,8 +78,8 @@ service cloud.firestore {
 
     // 3. User Stickers Collection
     match /user_stickers/{stickerRecordId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if true;
+      allow list: if true;
       allow create: if isSignedIn() && (incoming().userId == request.auth.uid || incoming().userId.matches('^demo_.*')) && isValidUserSticker(incoming());
       allow update: if isSignedIn() && (existing().userId == request.auth.uid || existing().userId.matches('^demo_.*')) && (incoming().userId == request.auth.uid || incoming().userId.matches('^demo_.*')) && isValidUserSticker(incoming())
         && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'quantity', 'updatedAt', 'userDisplayName']);

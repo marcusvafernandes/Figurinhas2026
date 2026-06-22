@@ -200,6 +200,8 @@ export default function App() {
 
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  const [expandedPartnersMissing, setExpandedPartnersMissing] = useState<Record<string, boolean>>({});
+  const [expandedPartnersRepeated, setExpandedPartnersRepeated] = useState<Record<string, boolean>>({});
 
   const triggerNotification = (title: string, description: string) => {
     const toastId = Math.random().toString(36).substring(2, 9);
@@ -3070,11 +3072,11 @@ export default function App() {
           {activeTab === 'matches' && (
             <div className="flex flex-col gap-5">
               
-              {/* Regulamento de Valoração de Trocas (Mercado da Copinha) */}
+              {/* Regulamento de Valoração de Trocas (Mercado da Copa do Mundo) */}
               <div className="bg-[#FFFDF3] border border-amber-200/80 p-5 rounded-2xl shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl -z-10"></div>
                 <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-amber-850 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-amber-700 shrink-0" /> Regulamento de Valoração e Troca Justa (Copinha 2026)
+                  <BookOpen className="w-4 h-4 text-amber-700 shrink-0" /> Regulamento de Valoração e Troca Justa (Copa do Mundo 2026)
                 </h3>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed font-semibold">
                   Para facilitar e enriquecer as negociações no álbum da Copa, as figurinhas do app possuem coeficientes de valoração automática baseados nas regras de troca padrão do mercado:
@@ -3275,74 +3277,128 @@ export default function App() {
                             )}
                           </div>
                         </div>
-
                       </div>
                     );
                   })}
 
-                  {doubleMatchesList.length === 0 && (
-                    <div className="text-center py-8 text-slate-500 font-sans text-xs">
-                      Nenhum match recíproco exato de 1:1 no momento. 
-                      <p className="text-[10px] text-slate-500 max-w-sm mx-auto mt-1 font-semibold">Marque mais repetidas e faltantes ou clique em "Spawnar Colecionadores (Demo)" no painel ao lado para testar!</p>
-                    </div>
-                  )}
+                    {doubleMatchesList.length === 0 && (
+                      <div className="text-center py-8 text-slate-500 font-sans text-xs">
+                        Nenhum match recíproco exato de 1:1 no momento.
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-              </div>
-
-              {/* Passive Matches (Quem tem o que eu preciso) */}
-              <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
+                {/* Passive Matches (Quem tem o que eu preciso) */}
+                <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
                 <div className="mb-4">
                   <h3 className="font-extrabold text-sm text-slate-800">Colecionadores com as Figurinhas que você precisa</h3>
-                  <p className="text-xs text-slate-500 mt-1 font-medium">Abaixo estão listados todos os usuários do sistema que possuem repetidas correspondentes às suas figurinhas marcadas como faltantes.</p>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">Abaixo estão listados todos os colecionadores do sistema que possuem repetidas correspondentes às suas figurinhas marcadas como faltantes.</p>
                 </div>
 
                 <div className="space-y-3">
-                  {singleMatchesList.filter(m => m.type === 'he_has_my_missing').length === 0 ? (
-                    <div className="text-center py-6 text-slate-550 text-xs font-mono bg-slate-50 border border-slate-200/60 rounded-xl">
-                      Nenhuma figurinha faltante sua foi localizada nas repetidas dos demais usuários.
-                    </div>
-                  ) : (
-                    singleMatchesList.filter(m => m.type === 'he_has_my_missing').map((match, idx) => {
-                      const isSpecial = isStickerSpecial(match.stickerId);
-                      return (
-                        <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 hover:border-emerald-350 flex items-center justify-between gap-4 text-xs transition shadow-sm">
-                          <div className="flex items-center gap-3">
-                            <img src={`https://api.dicebear.com/7.x/identicon/svg?seed=${match.partnerUid}`} alt="avatar" className="w-7 h-7 rounded bg-emerald-50 border border-emerald-150" />
-                            <div>
-                              <p className="font-extrabold text-slate-800">{match.partnerName} <span className="font-mono text-[9px] text-slate-450 font-normal">tem repetida:</span></p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <p className={`font-mono font-black py-0.5 px-1.5 rounded inline-block text-[11px] border ${
-                                  isSpecial 
-                                    ? 'bg-amber-100 border-amber-300 text-amber-800 shadow-sm' 
-                                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                                }`}>
-                                  {isSpecial ? '✨ ' : ''}{match.stickerName}
-                                </p>
-                                <span className="text-[10px] text-slate-500 font-mono font-semibold">
-                                  {isSpecial ? 'Metalizada (2 pts)' : 'Normal (1 pt)'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
+                  {(() => {
+                    const missingMatchesByPartner: Record<string, {
+                      partnerUid: string;
+                      partnerName: string;
+                      partnerWhatsapp?: string;
+                      stickers: { stickerId: string; stickerName: string; type: 'he_has_my_missing' | 'i_have_his_missing' }[];
+                    }> = {};
+                    singleMatchesList.filter(m => m.type === 'he_has_my_missing').forEach(m => {
+                      if (!missingMatchesByPartner[m.partnerUid]) {
+                        missingMatchesByPartner[m.partnerUid] = {
+                          partnerUid: m.partnerUid,
+                          partnerName: m.partnerName,
+                          partnerWhatsapp: m.partnerWhatsapp,
+                          stickers: []
+                        };
+                      }
+                      missingMatchesByPartner[m.partnerUid].stickers.push({
+                        stickerId: m.stickerId,
+                        stickerName: m.stickerName,
+                        type: m.type as 'he_has_my_missing' | 'i_have_his_missing'
+                      });
+                    });
+                    const missingMatchesGroups = Object.values(missingMatchesByPartner);
 
-                          <div className="flex gap-2 shrink-0">
-                            {match.partnerWhatsapp && (
-                              <a 
-                                href={buildSingleMatchWhatsappLink(match.partnerWhatsapp, match.partnerName, match.stickerId, match.type)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200 text-slate-600 rounded-lg transition-all cursor-pointer"
-                                title="Chamar no WhatsApp"
-                              >
-                                <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                              </a>
-                            )}
-                          </div>
+                    if (missingMatchesGroups.length === 0) {
+                      return (
+                        <div className="text-center py-6 text-slate-550 text-xs font-mono bg-slate-50 border border-slate-200/60 rounded-xl">
+                          Nenhuma figurinha faltante sua foi localizada nas repetidas dos demais usuários.
                         </div>
                       );
-                    })
-                  )}
+                    }
+
+                    return missingMatchesGroups.map((group) => {
+                      const isExpanded = expandedPartnersMissing[group.partnerUid] ?? false;
+                      return (
+                        <div key={group.partnerUid} className="bg-white rounded-xl border border-slate-200 overflow-hidden transition shadow-sm">
+                          {/* Header of the Collector Group */}
+                          <button 
+                            type="button"
+                            onClick={() => setExpandedPartnersMissing(prev => ({ ...prev, [group.partnerUid]: !isExpanded }))}
+                            className="w-full text-left p-3 flex items-center justify-between hover:bg-slate-550/5 transition select-none"
+                          >
+                            <div className="flex items-center gap-3">
+                              <img src={`https://api.dicebear.com/7.x/identicon/svg?seed=${group.partnerUid}`} alt="avatar" className="w-8 h-8 rounded bg-emerald-50 border border-emerald-150" />
+                              <div>
+                                <p className="font-extrabold text-xs text-slate-800">{group.partnerName}</p>
+                                <p className="text-[10px] text-slate-500 font-semibold font-sans mt-0.5">
+                                  Possui <span className="text-emerald-700 font-extrabold">{group.stickers.length}</span> {group.stickers.length === 1 ? 'figurinha' : 'figurinhas'} que você precisa
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              {group.partnerWhatsapp && (
+                                <span className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider font-mono">
+                                  WhatsApp
+                                </span>
+                              )}
+                              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                            </div>
+                          </button>
+
+                          {/* Expanded content */}
+                          {isExpanded && (
+                            <div className="border-t border-slate-100 bg-slate-50/40 p-3 space-y-2">
+                              {group.stickers.map((stk) => {
+                                const isSpecial = isStickerSpecial(stk.stickerId);
+                                return (
+                                  <div key={stk.stickerId} className="bg-white p-2.5 rounded-lg border border-slate-150 flex items-center justify-between gap-4 text-xs transition shadow-sm">
+                                    <div className="flex items-center gap-2">
+                                      <p className={`font-mono font-black py-0.5 px-1.5 rounded inline-block text-[11px] border ${
+                                        isSpecial 
+                                          ? 'bg-amber-100 border-amber-300 text-amber-805 shadow-sm' 
+                                          : 'bg-emerald-50 border-emerald-200 text-emerald-805'
+                                      }`}>
+                                        {isSpecial ? '✨ ' : ''}{stk.stickerName}
+                                      </p>
+                                      <span className="text-[10px] text-slate-500 font-mono font-semibold">
+                                        {isSpecial ? 'Metalizada (2 pts)' : 'Normal (1 pt)'}
+                                      </span>
+                                    </div>
+
+                                    {group.partnerWhatsapp && (
+                                      <a 
+                                        href={buildSingleMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, stk.stickerId, stk.type)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="py-1 px-2.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200 text-slate-605 rounded-lg transition-all cursor-pointer font-semibold flex items-center gap-1.5 text-[11px]"
+                                        title="Chamar no WhatsApp"
+                                      >
+                                        <Phone className="w-3 h-3 text-emerald-600 shrink-0" /> Combinar Troca
+                                      </a>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
 
@@ -3354,51 +3410,108 @@ export default function App() {
                 </div>
 
                 <div className="space-y-3">
-                  {singleMatchesList.filter(m => m.type === 'i_have_his_missing').length === 0 ? (
-                    <div className="text-center py-6 text-slate-500 text-xs font-mono bg-slate-50 border border-slate-100 rounded-xl">
-                      Ninguém precisa de nenhuma das suas repetidas marcadas recentemente.
-                    </div>
-                  ) : (
-                    singleMatchesList.filter(m => m.type === 'i_have_his_missing').map((match, idx) => {
-                      const isSpecial = isStickerSpecial(match.stickerId);
-                      return (
-                        <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 hover:border-emerald-350 flex items-center justify-between gap-4 text-xs transition shadow-sm">
-                          <div className="flex items-center gap-3">
-                            <img src={`https://api.dicebear.com/7.x/identicon/svg?seed=${match.partnerUid}`} alt="avatar" className="w-7 h-7 rounded bg-emerald-50 border border-emerald-150" />
-                            <div>
-                              <p className="font-extrabold text-slate-800">{match.partnerName} <span className="font-mono text-[9px] text-slate-450 font-normal">precisa de:</span></p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <p className={`font-mono font-black py-0.5 px-1.5 rounded inline-block text-[11px] border ${
-                                  isSpecial 
-                                    ? 'bg-amber-100 border-amber-305 text-amber-850 shadow-sm' 
-                                    : 'bg-emerald-50 border-emerald-200 text-emerald-805'
-                                }`}>
-                                  {isSpecial ? '✨ ' : ''}{match.stickerName}
-                                </p>
-                                <span className="text-[10px] text-slate-500 font-mono font-semibold">
-                                  {isSpecial ? 'Metalizada (2 pts)' : 'Normal (1 pt)'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
+                  {(() => {
+                    const repeatedMatchesByPartner: Record<string, {
+                      partnerUid: string;
+                      partnerName: string;
+                      partnerWhatsapp?: string;
+                      stickers: { stickerId: string; stickerName: string; type: 'he_has_my_missing' | 'i_have_his_missing' }[];
+                    }> = {};
+                    singleMatchesList.filter(m => m.type === 'i_have_his_missing').forEach(m => {
+                      if (!repeatedMatchesByPartner[m.partnerUid]) {
+                        repeatedMatchesByPartner[m.partnerUid] = {
+                          partnerUid: m.partnerUid,
+                          partnerName: m.partnerName,
+                          partnerWhatsapp: m.partnerWhatsapp,
+                          stickers: []
+                        };
+                      }
+                      repeatedMatchesByPartner[m.partnerUid].stickers.push({
+                        stickerId: m.stickerId,
+                        stickerName: m.stickerName,
+                        type: m.type as 'he_has_my_missing' | 'i_have_his_missing'
+                      });
+                    });
+                    const repeatedMatchesGroups = Object.values(repeatedMatchesByPartner);
 
-                          <div className="flex gap-2 shrink-0">
-                            {match.partnerWhatsapp && (
-                              <a 
-                                href={buildSingleMatchWhatsappLink(match.partnerWhatsapp, match.partnerName, match.stickerId, match.type)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200 text-slate-605 rounded-lg transition-all cursor-pointer"
-                                title="Chamar no WhatsApp"
-                              >
-                                <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                              </a>
-                            )}
-                          </div>
+                    if (repeatedMatchesGroups.length === 0) {
+                      return (
+                        <div className="text-center py-6 text-slate-550 text-xs font-mono bg-slate-50 border border-slate-100 rounded-xl">
+                          Ninguém precisa de nenhuma das suas repetidas marcadas recentemente.
                         </div>
                       );
-                    })
-                  )}
+                    }
+
+                    return repeatedMatchesGroups.map((group) => {
+                      const isExpanded = expandedPartnersRepeated[group.partnerUid] ?? false;
+                      return (
+                        <div key={group.partnerUid} className="bg-white rounded-xl border border-slate-200 overflow-hidden transition shadow-sm">
+                          {/* Header of the Collector Group */}
+                          <button 
+                            type="button"
+                            onClick={() => setExpandedPartnersRepeated(prev => ({ ...prev, [group.partnerUid]: !isExpanded }))}
+                            className="w-full text-left p-3 flex items-center justify-between hover:bg-slate-550/5 transition select-none"
+                          >
+                            <div className="flex items-center gap-3">
+                              <img src={`https://api.dicebear.com/7.x/identicon/svg?seed=${group.partnerUid}`} alt="avatar" className="w-8 h-8 rounded bg-emerald-50 border border-emerald-150" />
+                              <div>
+                                <p className="font-extrabold text-xs text-slate-800">{group.partnerName}</p>
+                                <p className="text-[10px] text-slate-500 font-semibold font-sans mt-0.5">
+                                  Precisa de <span className="text-sky-700 font-extrabold">{group.stickers.length}</span> {group.stickers.length === 1 ? 'figurinha' : 'figurinhas'} repetida sua
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              {group.partnerWhatsapp && (
+                                <span className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider font-mono">
+                                  WhatsApp
+                                </span>
+                              )}
+                              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                            </div>
+                          </button>
+
+                          {/* Expanded content */}
+                          {isExpanded && (
+                            <div className="border-t border-slate-100 bg-slate-50/40 p-3 space-y-2">
+                              {group.stickers.map((stk) => {
+                                const isSpecial = isStickerSpecial(stk.stickerId);
+                                return (
+                                  <div key={stk.stickerId} className="bg-white p-2.5 rounded-lg border border-slate-150 flex items-center justify-between gap-4 text-xs transition shadow-sm">
+                                    <div className="flex items-center gap-2">
+                                      <p className={`font-mono font-black py-0.5 px-1.5 rounded inline-block text-[11px] border ${
+                                        isSpecial 
+                                          ? 'bg-amber-100 border-amber-305 text-amber-850 shadow-sm' 
+                                          : 'bg-emerald-50 border-emerald-200 text-emerald-805'
+                                      }`}>
+                                        {isSpecial ? '✨ ' : ''}{stk.stickerName}
+                                      </p>
+                                      <span className="text-[10px] text-slate-500 font-mono font-semibold">
+                                        {isSpecial ? 'Metalizada (2 pts)' : 'Normal (1 pt)'}
+                                      </span>
+                                    </div>
+
+                                    {group.partnerWhatsapp && (
+                                      <a 
+                                        href={buildSingleMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, stk.stickerId, stk.type)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="py-1 px-2.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200 text-slate-605 rounded-lg transition-all cursor-pointer font-semibold flex items-center gap-1.5 text-[11px]"
+                                        title="Chamar no WhatsApp"
+                                      >
+                                        <Phone className="w-3 h-3 text-emerald-600 shrink-0" /> Combinar Troca
+                                      </a>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
 

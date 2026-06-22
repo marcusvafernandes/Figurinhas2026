@@ -11,7 +11,7 @@ import {
   createUserWithEmailAndPassword, 
   updateProfile
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { LogIn, Rocket, ShieldAlert, Check, PhoneCall, ArrowUpRight } from 'lucide-react';
 
@@ -28,6 +28,41 @@ export default function Auth({ onSuccess }: AuthProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showConfigGuide, setShowConfigGuide] = useState(false);
+  const [totals, setTotals] = useState<{ users: number; repeated: number } | null>(null);
+
+  // Real-time general activity stats fetch
+  React.useEffect(() => {
+    const usersRef = collection(db, 'users');
+    const unsubUsers = onSnapshot(usersRef, (snapshot) => {
+      setTotals(prev => ({
+        users: snapshot.size,
+        repeated: prev?.repeated ?? 0
+      }));
+    }, (err) => {
+      console.warn("Could not load public users count:", err);
+    });
+
+    const stickersRef = collection(db, 'user_stickers');
+    const qRepeated = query(stickersRef, where('status', '==', 'repeated'));
+    const unsubStickers = onSnapshot(qRepeated, (snapshot) => {
+      let sum = 0;
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        sum += Number(data.quantity || 1);
+      });
+      setTotals(prev => ({
+        users: prev?.users ?? 0,
+        repeated: sum
+      }));
+    }, (err) => {
+      console.warn("Could not load public repeated stickers count:", err);
+    });
+
+    return () => {
+      unsubUsers();
+      unsubStickers();
+    };
+  }, []);
 
   // Helper to ensure user document exists in Firestore
   const ensureUserInFirestore = async (uid: string, info: { email: string; displayName: string; photoURL?: string; whatsappValue?: string }) => {
@@ -140,13 +175,49 @@ export default function Auth({ onSuccess }: AuthProps) {
         {/* Top Branding Header */}
         <div className="relative z-10">
           <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold font-mono mb-6">
-            🏆 SELEÇÃO BRASILEIRA PASTEL • COPA 2026
+            🤝 Troque suas figurinhas com outros colecionadores
           </div>
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-none bg-gradient-to-r from-emerald-600 via-sky-600 to-amber-500 bg-clip-text text-transparent">
             Figurinhas Copa 2026
           </h1>
           <p className="mt-4 text-slate-600 max-w-sm text-sm md:text-base leading-relaxed">
             Gerencie seu álbum, marque suas figurinhas repetidas e faltantes, e encontre trocas perfeitas de forma 100% automatizada no Firebase.
+          </p>
+        </div>
+
+        {/* Potencial de Troca / Live Stats */}
+        <div id="live_stats_card" className="relative z-10 my-6 bg-white/60 backdrop-blur-md rounded-2xl p-4 border border-emerald-100/80 shadow-sm">
+          <p className="text-[10px] font-mono uppercase font-extrabold tracking-wider text-emerald-800 mb-3 flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            Atividade Geral do Sistema
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white/90 p-3.5 rounded-xl border border-slate-200/60 flex flex-col shadow-sm">
+              <span className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight font-sans">
+                {totals ? (
+                  <span className="animate-fade-in">{totals.users}</span>
+                ) : (
+                  <span className="text-slate-400 text-xs font-semibold animate-pulse">Carregando...</span>
+                )}
+              </span>
+              <span className="text-[11px] text-slate-500 font-bold mt-1">Colecionadores</span>
+            </div>
+            <div className="bg-white/90 p-3.5 rounded-xl border border-slate-200/60 flex flex-col shadow-sm">
+              <span className="text-2xl md:text-3xl font-black text-emerald-700 tracking-tight font-sans">
+                {totals ? (
+                  <span className="animate-fade-in">{totals.repeated}</span>
+                ) : (
+                  <span className="text-slate-400 text-xs font-semibold animate-pulse">Carregando...</span>
+                )}
+              </span>
+              <span className="text-[11px] text-slate-500 font-bold mt-1">Figurinhas Repetidas</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-500 mt-3 leading-normal font-medium">
+            🔥 Trocas 1x1 recíprocas são calculadas em tempo real assim que você adiciona suas figurinhas repetidas e faltantes!
           </p>
         </div>
 
@@ -175,8 +246,8 @@ export default function Auth({ onSuccess }: AuthProps) {
               <Check className="w-4 h-4" />
             </div>
             <div>
-              <p className="font-bold text-slate-800 text-sm">Negociação Direta & Chat</p>
-              <p className="text-xs text-slate-500">Converse instantaneamente de forma integrada ou combine detalhes no WhatsApp.</p>
+              <p className="font-bold text-slate-800 text-sm">Negociação Direta & Trocas</p>
+              <p className="text-xs text-slate-500">Identificação das figurinhas dos outros colecionadores que faltam e contato ágil para combinar a troca.</p>
             </div>
           </div>
         </div>
@@ -244,7 +315,7 @@ export default function Auth({ onSuccess }: AuthProps) {
               Entrar com Conta Google (Instantâneo)
             </button>
             <p className="text-[10px] text-center text-slate-400 font-mono">
-              ★ Recomendado: Não requer configuração extra de provedor
+              ★ Recomendado
             </p>
           </div>
 
