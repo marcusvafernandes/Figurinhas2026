@@ -115,6 +115,64 @@ const buildDoubleMatchWhatsappLink = (
   return `https://wa.me/${withCountry}?text=${encodeURIComponent(text)}`;
 };
 
+const buildGeneralMatchText = (
+  partnerName: string,
+  myRepeated: string[],
+  myMissing: string[]
+) => {
+  const mySpecials = myRepeated.filter(isStickerSpecial);
+  const myNormals = myRepeated.filter(id => !isStickerSpecial(id));
+  const myPoints = mySpecials.length * 2 + myNormals.length;
+
+  const partnerSpecials = myMissing.filter(isStickerSpecial);
+  const partnerNormals = myMissing.filter(id => !isStickerSpecial(id));
+  const partnerPoints = partnerSpecials.length * 2 + partnerNormals.length;
+
+  let text = `🏆 *Figurinhas Copa 2026 - Oportunidade de Negociação* 🤝\n\n` +
+    `Olá ${partnerName}! Vi seu perfil no app *Figurinhas Copa 2026* e reuni nossas figurinhas de interesse:\n\n`;
+
+  if (myRepeated.length > 0) {
+    text += `🎁 *Eu tenho repetida que você precisa:* ${myRepeated.join(', ')}\n` +
+      `  ↳ ${myNormals.length} normal(is) e ${mySpecials.length} metalizada(s) (Total: ${myPoints} pts)\n\n`;
+  } else {
+    text += `🎁 *Eu tenho de repetida que você precisa:* Nenhuma no momento (estou aberto a compra/negociação).\n\n`;
+  }
+
+  if (myMissing.length > 0) {
+    text += `⭐️ *Você tem de repetida que eu preciso:* ${myMissing.join(', ')}\n` +
+      `  ↳ ${partnerNormals.length} normal(is) e ${partnerSpecials.length} metalizada(s) (Total: ${partnerPoints} pts)\n\n`;
+  } else {
+    text += `⭐️ *Você tem de repetida que eu preciso:* Nenhuma no momento (estou aberto a venda/negociação).\n\n`;
+  }
+
+  if (myRepeated.length > 0 && myMissing.length > 0) {
+    let balanceMsg = "";
+    if (myPoints === partnerPoints) {
+      balanceMsg = "⚖️ Troca em perfeito equilíbrio de valor!";
+    } else if (myPoints > partnerPoints) {
+      balanceMsg = `⚖️ Equilíbrio de valor: Estou oferecendo +${myPoints - partnerPoints} pontos em valor (Metalizada vale 2x normais).`;
+    } else {
+      balanceMsg = `⚖️ Equilíbrio de valor: Você está me oferecendo +${partnerPoints - myPoints} pontos em valor (Metalizada vale 2x normais).`;
+    }
+    text += `${balanceMsg}\n\n`;
+  }
+
+  text += `Gostaria de fechar negócio?`;
+  return text;
+};
+
+const buildGeneralMatchWhatsappLink = (
+  phone: string,
+  partnerName: string,
+  myRepeated: string[],
+  myMissing: string[]
+) => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  const withCountry = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+  const text = buildGeneralMatchText(partnerName, myRepeated, myMissing);
+  return `https://wa.me/${withCountry}?text=${encodeURIComponent(text)}`;
+};
+
 const buildSingleMatchWhatsappLink = (
   phone: string,
   partnerName: string,
@@ -307,6 +365,31 @@ export default function App() {
       }
     }
   };
+
+  const handleShareGeneralTradeSummary = async (partnerName: string, myRepeated: string[], myMissing: string[]) => {
+    const text = buildGeneralMatchText(partnerName, myRepeated, myMissing);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Oportunidade de Negociação - Figurinhas Copa 2026',
+          text: text
+        });
+        triggerNotification('Compartilhado!', 'Proposta de negociação compartilhada com sucesso!');
+      } catch (error) {
+        console.log('Share error or cancel:', error);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        triggerNotification('Copiado!', 'Proposta de negociação copiada para a área de transferência!');
+      } catch (err) {
+        console.error('Clipboard copy error:', err);
+        triggerNotification('Erro ao Copiar', 'Não conseguimos copiar ou compartilhar a proposta.');
+      }
+    }
+  };
+
 
   // Administrative / Simulation dashboard states
   const [adminSelectedUserUid, setAdminSelectedUserUid] = useState<string>('');
@@ -4189,6 +4272,42 @@ export default function App() {
                           {/* Expanded content */}
                           {isExpanded && (
                             <div className="border-t border-slate-100 bg-slate-50/40 p-3 space-y-2.5">
+                              {(() => {
+                                const partnerRepeatedToMe = singleMatchesList.filter(m => m.partnerUid === group.partnerUid && m.type === 'he_has_my_missing').map(m => m.stickerId);
+                                const myRepeatedToPartner = singleMatchesList.filter(m => m.partnerUid === group.partnerUid && m.type === 'i_have_his_missing').map(m => m.stickerId);
+                                return (
+                                  <div className="bg-gradient-to-r from-emerald-50 to-indigo-50/40 p-3 rounded-lg border border-indigo-100/60 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                                    <div className="space-y-0.5">
+                                      <p className="font-extrabold text-slate-700">Proposta de Negociação Unificada</p>
+                                      <p className="text-[10px] text-slate-500 font-medium">
+                                        Você pode oferecer <span className="text-emerald-700 font-extrabold">{myRepeatedToPartner.length} repetida(s)</span> e quer <span className="text-indigo-700 font-extrabold">{partnerRepeatedToMe.length} faltante(s)</span> deste colecionador.
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {group.partnerWhatsapp && (
+                                        <a 
+                                          href={buildGeneralMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex-1 md:flex-none py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[36px]"
+                                          title="Enviar Proposta completa via WhatsApp"
+                                        >
+                                          <Phone className="w-3.5 h-3.5 text-white shrink-0" /> Chamar WhatsApp (Lista Completa)
+                                        </a>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleShareGeneralTradeSummary(group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
+                                        className="flex-1 md:flex-none py-1.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-205 rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[36px]"
+                                        title="Copiar ou Compartilhar Proposta Completa"
+                                      >
+                                        <Share2 className="w-3.5 h-3.5 text-slate-500 shrink-0" /> Compartilhar Proposta
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
                               {group.stickers.map((stk) => {
                                 const isSpecial = isStickerSpecial(stk.stickerId);
                                 return (
@@ -4302,6 +4421,42 @@ export default function App() {
                           {/* Expanded content */}
                           {isExpanded && (
                             <div className="border-t border-slate-100 bg-slate-50/40 p-3 space-y-2.5">
+                              {(() => {
+                                const partnerRepeatedToMe = singleMatchesList.filter(m => m.partnerUid === group.partnerUid && m.type === 'he_has_my_missing').map(m => m.stickerId);
+                                const myRepeatedToPartner = singleMatchesList.filter(m => m.partnerUid === group.partnerUid && m.type === 'i_have_his_missing').map(m => m.stickerId);
+                                return (
+                                  <div className="bg-gradient-to-r from-emerald-50 to-indigo-50/40 p-3 rounded-lg border border-indigo-100/60 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                                    <div className="space-y-0.5">
+                                      <p className="font-extrabold text-slate-700">Proposta de Negociação Unificada</p>
+                                      <p className="text-[10px] text-slate-500 font-medium">
+                                        Você pode oferecer <span className="text-emerald-700 font-extrabold">{myRepeatedToPartner.length} repetida(s)</span> e quer <span className="text-indigo-700 font-extrabold">{partnerRepeatedToMe.length} faltante(s)</span> deste colecionador.
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {group.partnerWhatsapp && (
+                                        <a 
+                                          href={buildGeneralMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex-1 md:flex-none py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[36px]"
+                                          title="Enviar Proposta completa via WhatsApp"
+                                        >
+                                          <Phone className="w-3.5 h-3.5 text-white shrink-0" /> Chamar WhatsApp (Lista Completa)
+                                        </a>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleShareGeneralTradeSummary(group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
+                                        className="flex-1 md:flex-none py-1.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-205 rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[36px]"
+                                        title="Copiar ou Compartilhar Proposta Completa"
+                                      >
+                                        <Share2 className="w-3.5 h-3.5 text-slate-500 shrink-0" /> Compartilhar Proposta
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
                               {group.stickers.map((stk) => {
                                 const isSpecial = isStickerSpecial(stk.stickerId);
                                 return (
