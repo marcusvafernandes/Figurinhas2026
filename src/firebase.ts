@@ -5,7 +5,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, doc, getDocFromServer, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 import firebaseConfig from './firebase-user-config.json';
 
 // Initialize Firebase App
@@ -16,19 +16,26 @@ export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
   ignoreUndefinedProperties: true
 }, firebaseConfig.firestoreDatabaseId);
+
+// Enable offline caching / persistence for high-availability offline support
+enableMultiTabIndexedDbPersistence(db).catch((err) => {
+  console.warn("Firestore offline persistence could not be enabled:", err.message);
+});
+
 export const auth = getAuth(app);
 
-// Validation Test Connection
+// Validation Test Connection (Non-blocking, gracefully logged in console if connection fails/is offline)
 async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    }
+    console.warn("Firestore background connection check status (using cached / offline storage mode):", error instanceof Error ? error.message : String(error));
   }
 }
-testConnection();
+// Run the connection test asynchronously after the app is loaded to avoid blocking the initial render
+setTimeout(() => {
+  testConnection();
+}, 3000);
 
 // Mandatory Firestore Error Handlers according to SKILL.md
 export enum OperationType {

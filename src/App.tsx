@@ -60,8 +60,11 @@ import {
   ArrowUpRight,
   Download,
   Upload,
-  ShieldCheck
+  ShieldCheck,
+  LayoutGrid,
+  List
 } from 'lucide-react';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 const isStickerSpecial = (id: string): boolean => {
   const s = STICKERS.find(item => item.id === id);
@@ -189,6 +192,15 @@ export default function App() {
   const [selectedGroup, setSelectedGroup] = useState<string>('TODOS');
   const [selectedTeam, setSelectedTeam] = useState<string>('TODOS');
   const [statusFilter, setStatusFilter] = useState<'TODOS' | 'missing' | 'repeated' | 'owned'>('TODOS');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    const cached = localStorage.getItem('copa_view_mode');
+    return (cached === 'list' || cached === 'grid') ? cached : 'grid';
+  });
+
+  const handleSetViewMode = (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    localStorage.setItem('copa_view_mode', mode);
+  };
 
   // Active chat session
   const [activeChat, setActiveChat] = useState<{
@@ -197,6 +209,30 @@ export default function App() {
     partnerName: string;
     partnerWhatsapp?: string;
   } | null>(null);
+
+  // Active trade confirmation modal/inline state
+  const [confirmingTrade, setConfirmingTrade] = useState<{
+    partnerUid: string;
+    partnerName: string;
+    myRepeated: string[];
+    myMissing: string[];
+  } | null>(null);
+
+  const [tradeGaveChecked, setTradeGaveChecked] = useState<Record<string, boolean>>({});
+  const [tradeReceivedChecked, setTradeReceivedChecked] = useState<Record<string, boolean>>({});
+
+  const handleOpenTradeConfirmation = (partnerUid: string, partnerName: string, myRepeated: string[], myMissing: string[]) => {
+    setConfirmingTrade({ partnerUid, partnerName, myRepeated, myMissing });
+    
+    const initialGave: Record<string, boolean> = {};
+    myRepeated.forEach(id => { initialGave[id] = true; });
+    
+    const initialRecv: Record<string, boolean> = {};
+    myMissing.forEach(id => { initialRecv[id] = true; });
+    
+    setTradeGaveChecked(initialGave);
+    setTradeReceivedChecked(initialRecv);
+  };
 
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -218,6 +254,54 @@ export default function App() {
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== toastId));
     }, 7500);
+  };
+
+  const handleShareTradeSummary = async (partnerName: string, myRepeated: string[], myMissing: string[]) => {
+    const mySpecials = myRepeated.filter(isStickerSpecial);
+    const myNormals = myRepeated.filter(id => !isStickerSpecial(id));
+    const myPoints = mySpecials.length * 2 + myNormals.length;
+    
+    const partnerSpecials = myMissing.filter(isStickerSpecial);
+    const partnerNormals = myMissing.filter(id => !isStickerSpecial(id));
+    const partnerPoints = partnerSpecials.length * 2 + partnerNormals.length;
+    
+    let balanceMsg = "";
+    if (myPoints === partnerPoints) {
+      balanceMsg = "⚖️ Troca equilibrada de valor!";
+    } else if (myPoints > partnerPoints) {
+      balanceMsg = `⚖️ Estou oferecendo +${myPoints - partnerPoints} pontos em valor (Pois metalizada vale 2x normais).`;
+    } else {
+      balanceMsg = `⚖️ Você está me oferecendo +${partnerPoints - myPoints} pontos em valor (Pois metalizada vale 2x normais).`;
+    }
+
+    const text = `🏆 *Figurinhas Copa 2026 - Proposta de Troca* 🤝\n\n` +
+      `Olá ${partnerName}! Vi seu perfil e temos um match perfeito de trocas:\n\n` +
+      `🎁 *Eu te dou:* ${myRepeated.join(', ')}\n` +
+      `  ↳ ${myNormals.length} normal(is) e ${mySpecials.length} metalizada(s) (Total: ${myPoints} pts)\n\n` +
+      `⭐️ *Você me dá:* ${myMissing.join(', ')}\n` +
+      `  ↳ ${partnerNormals.length} normal(is) e ${partnerSpecials.length} metalizada(s) (Total: ${partnerPoints} pts)\n\n` +
+      `${balanceMsg}\n\n` +
+      `Combinamos de trocar?`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Proposta de Troca - Figurinhas Copa 2026',
+          text: text
+        });
+        triggerNotification('Compartilhado!', 'Proposta enviada com sucesso!');
+      } catch (error) {
+        console.log('Share error or cancel:', error);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        triggerNotification('Copiado!', 'Resumo de troca copiado para a área de transferência!');
+      } catch (err) {
+        console.error('Clipboard copy error:', err);
+        triggerNotification('Erro ao Copiar', 'Não conseguimos copiar ou compartilhar.');
+      }
+    }
   };
 
   // Administrative / Simulation dashboard states
@@ -302,6 +386,7 @@ export default function App() {
       }
 
       if (firebaseUser) {
+        localStorage.setItem('copa_visited', 'true');
         // Fetch full profile details
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         unsubUserDoc = onSnapshot(userDocRef, (snap) => {
@@ -414,7 +499,7 @@ export default function App() {
       const repeatedCount = finalRecords
         .filter(r => r.status === 'repeated')
         .reduce((acc, r) => acc + (Number(r.quantity) || 1), 0);
-      localStorage.setItem('copa_public_stats_repeated', String(Math.max(500, repeatedCount)));
+      localStorage.setItem('copa_public_stats_repeated', String(Math.max(300, repeatedCount)));
     }, (err) => {
       // Ignore list permission errors if in guest/demo mode
       if (!user.uid.startsWith('demo_')) {
@@ -440,7 +525,7 @@ export default function App() {
       setAllUsers(usersMap);
       
       // Dynamically cache public statistics counters for landing page
-      const usersCount = Math.max(5, snapshot.size);
+      const usersCount = Math.max(3, snapshot.size);
       localStorage.setItem('copa_public_stats_users', String(usersCount));
     }, (err) => {
       if (!user.uid.startsWith('demo_')) {
@@ -627,6 +712,113 @@ export default function App() {
       }, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `user_stickers/${recordId}`);
+    }
+  };
+
+  const handleApplyTradeConfirm = async () => {
+    if (!user || !confirmingTrade) return;
+
+    const stickersToGive = confirmingTrade.myRepeated.filter(id => tradeGaveChecked[id]);
+    const stickersToReceive = confirmingTrade.myMissing.filter(id => tradeReceivedChecked[id]);
+
+    if (stickersToGive.length === 0 && stickersToReceive.length === 0) {
+      triggerNotification("Aviso 💡", "Nenhuma figurinha foi selecionada para a troca.");
+      return;
+    }
+
+    try {
+      const updatedMyStickers = { ...myStickers };
+
+      // 1. Process stickers given: "retirar (-1) das repetidas (verificar que se só houver 1 repetida, ela deve ser modificada para 'tenho')"
+      stickersToGive.forEach(id => {
+        const current = updatedMyStickers[id];
+        if (current && current.status === 'repeated') {
+          const qty = current.quantity || 1;
+          if (qty <= 1) {
+            updatedMyStickers[id] = {
+              ...current,
+              status: 'owned',
+              quantity: 1,
+              updatedAt: new Date().toISOString()
+            };
+          } else {
+            updatedMyStickers[id] = {
+              ...current,
+              quantity: qty - 1,
+              updatedAt: new Date().toISOString()
+            };
+          }
+        }
+      });
+
+      // 2. Process stickers received: "e aplicar 'tenho' nas figurinhas recebidas na troca"
+      stickersToReceive.forEach(id => {
+        updatedMyStickers[id] = {
+          id: `${user.uid}_${id}`,
+          userId: user.uid,
+          userDisplayName: user.displayName || 'Colecionador',
+          stickerId: id,
+          status: 'owned',
+          quantity: 1,
+          updatedAt: new Date().toISOString()
+        };
+      });
+
+      if (user.uid.startsWith('demo_')) {
+        localStorage.setItem(`copa_stickers_local_${user.uid}`, JSON.stringify(updatedMyStickers));
+        setMyStickers(updatedMyStickers);
+        setAllStickersRecords(prev => {
+          const filtered = prev.filter(r => r.userId !== user.uid);
+          return [...filtered, ...(Object.values(updatedMyStickers) as UserSticker[])];
+        });
+      } else {
+        const batch = writeBatch(db);
+
+        stickersToGive.forEach(id => {
+          const recordId = `${user.uid}_${id}`;
+          const docRef = doc(db, 'user_stickers', recordId);
+          const itemState = updatedMyStickers[id];
+          batch.set(docRef, {
+            id: recordId,
+            userId: user.uid,
+            userDisplayName: user.displayName || 'Colecionador',
+            stickerId: id,
+            status: itemState.status,
+            quantity: itemState.quantity,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        });
+
+        stickersToReceive.forEach(id => {
+          const recordId = `${user.uid}_${id}`;
+          const docRef = doc(db, 'user_stickers', recordId);
+          batch.set(docRef, {
+            id: recordId,
+            userId: user.uid,
+            userDisplayName: user.displayName || 'Colecionador',
+            stickerId: id,
+            status: 'owned',
+            quantity: 1,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        });
+
+        await batch.commit();
+        setMyStickers(updatedMyStickers);
+        setAllStickersRecords(prev => {
+          const filtered = prev.filter(r => r.userId !== user.uid);
+          return [...filtered, ...(Object.values(updatedMyStickers) as UserSticker[])];
+        });
+      }
+
+      triggerNotification(
+        "Troca Aplicada! 🎉", 
+        `Seu inventário foi atualizado com sucesso (${stickersToGive.length} dadas e ${stickersToReceive.length} recebidas).`
+      );
+      setConfirmingTrade(null);
+    } catch (err) {
+      console.error("Failed to confirm trade:", err);
+      triggerNotification("Erro de conexão ⚠️", "Não foi possível sincronizar a troca com o servidor.");
     }
   };
 
@@ -2019,14 +2211,71 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-center text-xs font-mono">
-              <div className="bg-emerald-50/60 border border-emerald-100 p-2.5 rounded-xl">
-                <p className="text-emerald-800 text-[10px] font-bold">Repetidas</p>
-                <p className="font-extrabold text-emerald-700 text-lg mt-0.5">+{totalRepeatedSum}</p>
+            {/* Donut Chart */}
+            {(() => {
+              const progressChartData = [
+                { name: 'Completas', value: totalStickersCount - countedMissing, color: '#10b981' },
+                { name: 'Faltando', value: countedMissing, color: '#f59e0b' },
+                { name: 'Repetidas', value: totalRepeatedSum, color: '#3b82f6' }
+              ];
+
+              return (
+                <div className="h-40 my-3 flex items-center justify-center relative select-none">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={progressChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={65}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {progressChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value) => [`${value} un.`, 'Quantidade']}
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                          borderRadius: '12px', 
+                          borderColor: '#f1f5f9',
+                          fontSize: '11px',
+                          fontWeight: 'bold',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                        }} 
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Center stat overlay */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold">Total</span>
+                    <span className="text-base font-black text-slate-800 leading-none">
+                      {totalStickersCount + totalRepeatedSum}
+                    </span>
+                    <span className="text-[8px] text-slate-400 font-mono mt-0.5">figurinhas</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="grid grid-cols-3 gap-1.5 text-center text-xs font-mono">
+              <div className="bg-emerald-50/50 border border-emerald-100/80 p-2 rounded-xl flex flex-col justify-center items-center">
+                <span className="bg-emerald-500 w-1.5 h-1.5 rounded-full mb-1"></span>
+                <p className="text-emerald-800 text-[10px] font-bold font-sans">Coladas</p>
+                <p className="font-extrabold text-emerald-700 text-sm mt-0.5">{totalStickersCount - countedMissing}</p>
               </div>
-              <div className="bg-amber-50/70 border border-amber-100 p-2.5 rounded-xl">
-                <p className="text-amber-800 text-[10px] font-bold">Faltando</p>
-                <p className="font-extrabold text-amber-700 text-lg mt-0.5">{countedMissing}</p>
+              <div className="bg-amber-50/60 border border-amber-100/80 p-2 rounded-xl flex flex-col justify-center items-center">
+                <span className="bg-amber-500 w-1.5 h-1.5 rounded-full mb-1"></span>
+                <p className="text-amber-800 text-[10px] font-bold font-sans">Faltando</p>
+                <p className="font-extrabold text-amber-700 text-sm mt-0.5">{countedMissing}</p>
+              </div>
+              <div className="bg-blue-50/50 border border-blue-100/80 p-2 rounded-xl flex flex-col justify-center items-center">
+                <span className="bg-blue-500 w-1.5 h-1.5 rounded-full mb-1"></span>
+                <p className="text-blue-800 text-[10px] font-bold font-sans">Repetidas</p>
+                <p className="font-extrabold text-blue-700 text-sm mt-0.5">+{totalRepeatedSum}</p>
               </div>
             </div>
 
@@ -2536,31 +2785,69 @@ export default function App() {
               ) : (
                 <div className="flex flex-col gap-6 font-sans">
 
-                  {/* Status Filters Toggle */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-200">
-                    <div>
-                      <h3 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">Filtro de Status</h3>
-                      <p className="text-[10px] text-slate-500 mt-0.5 font-bold">Mostre apenas as figurinhas marcadas com determinado status.</p>
+                  {/* Status & View Mode Filters Layout */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Status Filters Toggle */}
+                    <div id="status_filters_card" className="flex flex-col justify-between gap-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-200">
+                      <div>
+                        <h3 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">Filtro de Status</h3>
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-bold">Mostre apenas as figurinhas com o status selecionado.</p>
+                      </div>
+
+                      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold font-sans self-start w-full sm:w-auto">
+                        {(['TODOS', 'missing', 'repeated', 'owned'] as const).map((status) => {
+                          const labels = { TODOS: 'Todas', missing: 'Falta 📍', repeated: 'Repetida 🔄', owned: 'Tenho ✔️' };
+                          return (
+                            <button
+                              key={status}
+                              type="button"
+                              onClick={() => setStatusFilter(status)}
+                              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition cursor-pointer font-bold ${
+                                statusFilter === status 
+                                  ? 'bg-white text-emerald-800 border border-slate-205 shadow-sm' 
+                                  : 'text-slate-500 hover:text-slate-850'
+                              }`}
+                            >
+                              {labels[status]}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold font-sans">
-                      {(['TODOS', 'missing', 'repeated', 'owned'] as const).map((status) => {
-                        const labels = { TODOS: 'Todas', missing: 'Falta 📍', repeated: 'Repetida 🔄', owned: 'Tenho ✔️' };
-                        return (
-                          <button
-                            key={status}
-                            type="button"
-                            onClick={() => setStatusFilter(status)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition cursor-pointer font-bold ${
-                              statusFilter === status 
-                                ? 'bg-white text-emerald-800 border border-slate-205 shadow-sm' 
-                                : 'text-slate-500 hover:text-slate-850'
-                            }`}
-                          >
-                            {labels[status]}
-                          </button>
-                        );
-                      })}
+                    {/* View Mode Toggle */}
+                    <div id="view_mode_filters_card" className="flex flex-col justify-between gap-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-200 animate-fade-in">
+                      <div>
+                        <h3 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">Modo de Visualização</h3>
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-bold">Escolha entre Visualização em Grade ou Lista de alta densidade.</p>
+                      </div>
+
+                      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold font-sans self-start w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleSetViewMode('grid')}
+                          className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-[10px] sm:text-xs transition cursor-pointer font-bold flex items-center justify-center gap-1.5 ${
+                            viewMode === 'grid'
+                              ? 'bg-white text-emerald-800 border border-slate-205 shadow-sm'
+                              : 'text-slate-500 hover:text-slate-850'
+                          }`}
+                        >
+                          <LayoutGrid className="w-3.5 h-3.5 text-current" />
+                          Grade
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSetViewMode('list')}
+                          className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-[10px] sm:text-xs transition cursor-pointer font-bold flex items-center justify-center gap-1.5 ${
+                            viewMode === 'list'
+                              ? 'bg-white text-emerald-800 border border-slate-205 shadow-sm'
+                              : 'text-slate-500 hover:text-slate-850'
+                          }`}
+                        >
+                          <List className="w-3.5 h-3.5 text-current" />
+                          Lista
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -2916,69 +3203,138 @@ export default function App() {
                               </div>
                             </div>
 
-                            {/* Numbered grid of Squares */}
-                            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
-                              {teamStickers.map(sticker => {
-                                const state = myStickers[sticker.id];
-                                const isStickerMissing = !state || state.status === 'missing';
-                                const isStickerRepeated = state?.status === 'repeated';
-                                const isStickerOwned = state?.status === 'owned';
+                             {/* Numbered grid of Squares or high-density list based on viewMode */}
+                             {viewMode === 'grid' ? (
+                               <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+                                 {teamStickers.map(sticker => {
+                                   const state = myStickers[sticker.id];
+                                   const isStickerMissing = !state || state.status === 'missing';
+                                   const isStickerRepeated = state?.status === 'repeated';
+                                   const isStickerOwned = state?.status === 'owned';
 
-                                const matchesStatusFilter = 
-                                  statusFilter === 'TODOS' ||
-                                  (statusFilter === 'missing' && isStickerMissing) ||
-                                  (statusFilter === 'repeated' && isStickerRepeated) ||
-                                  (statusFilter === 'owned' && (isStickerOwned || isStickerRepeated));
+                                   const matchesStatusFilter = 
+                                     statusFilter === 'TODOS' ||
+                                     (statusFilter === 'missing' && isStickerMissing) ||
+                                     (statusFilter === 'repeated' && isStickerRepeated) ||
+                                     (statusFilter === 'owned' && (isStickerOwned || isStickerRepeated));
 
-                                const matchesSearchText = 
-                                  !searchText.trim() ||
-                                  sticker.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                                  sticker.id.toLowerCase().includes(searchText.toLowerCase());
+                                   const matchesSearchText = 
+                                     !searchText.trim() ||
+                                     sticker.name.toLowerCase().includes(searchText.toLowerCase()) ||
+                                     sticker.id.toLowerCase().includes(searchText.toLowerCase());
 
-                                const isDimmed = !matchesStatusFilter || !matchesSearchText;
-                                const isSelected = sticker.id === activeStickerId;
+                                   const isDimmed = !matchesStatusFilter || !matchesSearchText;
+                                   const isSelected = sticker.id === activeStickerId;
 
-                                // Colors representing statuses beautifully matching reference strategy
-                                let bgStyle = 'bg-slate-50 border-slate-200 text-slate-455 hover:bg-slate-100 hover:text-slate-700'; 
-                                if (isStickerOwned) {
-                                  bgStyle = 'bg-gradient-to-tr from-emerald-50/60 to-teal-50/60 border-emerald-400 text-emerald-950';
-                                } else if (state?.status === 'missing') {
-                                  bgStyle = 'bg-amber-50/70 border-amber-350 text-amber-900';
-                                } else if (isStickerRepeated) {
-                                  bgStyle = 'bg-emerald-50 border-emerald-400 text-emerald-950';
-                                }
+                                   // Colors representing statuses beautifully matching reference strategy
+                                   let bgStyle = 'bg-slate-50 border-slate-200 text-slate-455 hover:bg-slate-100 hover:text-slate-700'; 
+                                   if (isStickerOwned) {
+                                     bgStyle = 'bg-gradient-to-tr from-emerald-50/60 to-teal-50/60 border-emerald-400 text-emerald-950';
+                                   } else if (state?.status === 'missing') {
+                                     bgStyle = 'bg-amber-50/70 border-amber-350 text-amber-900';
+                                   } else if (isStickerRepeated) {
+                                     bgStyle = 'bg-emerald-50 border-emerald-400 text-emerald-950';
+                                   }
 
-                                return (
-                                  <button
-                                    key={sticker.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedStickerByTeam(prev => ({ ...prev, [teamCode]: sticker.id }));
-                                    }}
-                                    className={`aspect-square flex flex-col items-center justify-center rounded-xl font-mono text-center relative border transition cursor-pointer select-none ${bgStyle} ${
-                                      isSelected 
-                                        ? 'ring-2 ring-emerald-500 border-transparent shadow-md scale-103 font-black z-10' 
-                                        : 'hover:scale-102 hover:border-slate-350'
-                                    } ${isDimmed ? 'opacity-[0.25]' : 'opacity-100'}`}
-                                  >
-                                    <span className="text-xs font-bold">{sticker.number}</span>
-                                    
-                                    {/* Small corner tags for quick inspection */}
-                                    {isStickerOwned && (
-                                      <span className="absolute top-1 right-1 text-[8px] bg-emerald-500 text-white w-3 h-3 rounded-full flex items-center justify-center font-bold">✔️</span>
-                                    )}
-                                    {isStickerMissing && (
-                                      <span className="absolute top-1 right-1 text-[9px]" title="Falta">📍</span>
-                                    )}
-                                    {isStickerRepeated && (
-                                      <span className="absolute top-0.5 right-0.5 bg-emerald-600 text-white text-[8px] px-1 py-0 rounded font-sans font-black shadow-xs">
-                                        +{state.quantity || 1}
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                                   return (
+                                     <button
+                                       key={sticker.id}
+                                       type="button"
+                                       onClick={() => {
+                                         setSelectedStickerByTeam(prev => ({ ...prev, [teamCode]: sticker.id }));
+                                       }}
+                                       className={`aspect-square flex flex-col items-center justify-center rounded-xl font-mono text-center relative border transition cursor-pointer select-none ${bgStyle} ${
+                                         isSelected 
+                                           ? 'ring-2 ring-emerald-500 border-transparent shadow-md scale-103 font-black z-10' 
+                                           : 'hover:scale-102 hover:border-slate-350'
+                                       } ${isDimmed ? 'opacity-[0.25]' : 'opacity-100'}`}
+                                     >
+                                       <span className="text-xs font-bold">{sticker.number}</span>
+                                       
+                                       {/* Small corner tags for quick inspection */}
+                                       {isStickerOwned && (
+                                         <span className="absolute top-1 right-1 text-[8px] bg-emerald-500 text-white w-3 h-3 rounded-full flex items-center justify-center font-bold">✔️</span>
+                                       )}
+                                       {isStickerMissing && (
+                                         <span className="absolute top-1 right-1 text-[9px]" title="Falta">📍</span>
+                                       )}
+                                       {isStickerRepeated && (
+                                         <span className="absolute top-0.5 right-0.5 bg-emerald-600 text-white text-[8px] px-1 py-0 rounded font-sans font-black shadow-xs">
+                                           +{state.quantity || 1}
+                                         </span>
+                                       )}
+                                     </button>
+                                   );
+                                 })}
+                               </div>
+                             ) : (
+                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 animate-fade-in">
+                                 {teamStickers.map(sticker => {
+                                   const state = myStickers[sticker.id];
+                                   const isStickerMissing = !state || state.status === 'missing';
+                                   const isStickerRepeated = state?.status === 'repeated';
+                                   const isStickerOwned = state?.status === 'owned';
+
+                                   const matchesStatusFilter = 
+                                     statusFilter === 'TODOS' ||
+                                     (statusFilter === 'missing' && isStickerMissing) ||
+                                     (statusFilter === 'repeated' && isStickerRepeated) ||
+                                     (statusFilter === 'owned' && (isStickerOwned || isStickerRepeated));
+
+                                   const matchesSearchText = 
+                                     !searchText.trim() ||
+                                     sticker.name.toLowerCase().includes(searchText.toLowerCase()) ||
+                                     sticker.id.toLowerCase().includes(searchText.toLowerCase());
+
+                                   const isDimmed = !matchesStatusFilter || !matchesSearchText;
+                                   const isSelected = sticker.id === activeStickerId;
+
+                                   let bgStyle = 'bg-slate-50 border-slate-205 text-slate-550 hover:bg-slate-100 transition-colors'; 
+                                   if (isStickerOwned) {
+                                     bgStyle = 'bg-gradient-to-tr from-emerald-50/40 to-teal-50/40 border-emerald-300 text-emerald-900';
+                                   } else if (state?.status === 'missing') {
+                                     bgStyle = 'bg-amber-50/40 border-amber-250 text-amber-900';
+                                   } else if (isStickerRepeated) {
+                                     bgStyle = 'bg-emerald-50/40 border-emerald-300 text-emerald-950';
+                                   }
+
+                                   return (
+                                     <button
+                                       key={sticker.id}
+                                       type="button"
+                                       onClick={() => {
+                                         setSelectedStickerByTeam(prev => ({ ...prev, [teamCode]: sticker.id }));
+                                       }}
+                                       className={`flex items-center justify-between px-3.5 py-2 rounded-xl text-left text-xs border transition cursor-pointer select-none min-h-[44px] ${bgStyle} ${
+                                         isSelected 
+                                           ? 'ring-2 ring-emerald-500 border-transparent shadow-sm font-bold scale-[1.01] z-10' 
+                                           : 'hover:border-slate-350'
+                                       } ${isDimmed ? 'opacity-[0.25]' : 'opacity-100'}`}
+                                     >
+                                       <div className="flex items-center gap-2 min-w-0 pr-1">
+                                         <span className="font-mono font-black text-[11px] bg-slate-205/50 border border-slate-300/40 px-1.5 py-0.5 rounded text-slate-600 shrink-0">
+                                           {sticker.id}
+                                         </span>
+                                         <span className="font-semibold text-slate-750 truncate text-[11.5px]" title={sticker.name}>
+                                           {sticker.name}
+                                         </span>
+                                       </div>
+                                       <div className="flex items-center shrink-0">
+                                         {isStickerOwned && (
+                                           <span className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold shadow-xs">✔️ Tenho</span>
+                                         )}
+                                         {isStickerMissing && (
+                                           <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold shadow-xs">📍 Falta</span>
+                                         )}
+                                         {isStickerRepeated && (
+                                           <span className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold shadow-xs">🔄 +{state.quantity || 1}</span>
+                                         )}
+                                       </div>
+                                     </button>
+                                   );
+                                 })}
+                               </div>
+                             )}
 
                             {/* Active/Selected Sticker Detail & Marking Panel */}
                             {activeSticker && (() => {
@@ -3188,12 +3544,11 @@ export default function App() {
                   {doubleMatchesList.map((match, idx) => {
                     const mySpecialsCount = match.myRepeated.filter(isStickerSpecial).length;
                     const myNormalsCount = match.myRepeated.length - mySpecialsCount;
-                    const myValuePoints = (mySpecialsCount * 3) + myNormalsCount;
+                    const myValuePoints = (mySpecialsCount * 2) + myNormalsCount;
 
                     const partnerSpecialsCount = match.myMissing.filter(isStickerSpecial).length;
                     const partnerNormalsCount = match.myMissing.length - partnerSpecialsCount;
-                    const partnerValuePoints = (partnerSpecialsCount * 3) + partnerNormalsCount;
-
+                    const partnerValuePoints = (partnerSpecialsCount * 2) + partnerNormalsCount;
                     const diffValue = Math.abs(myValuePoints - partnerValuePoints);
 
                     return (
@@ -3220,7 +3575,14 @@ export default function App() {
                           </div>
 
                           {/* Action controllers */}
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTradeConfirmation(match.partnerUid, match.partnerName, match.myRepeated, match.myMissing)}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-505 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer select-none"
+                            >
+                              <Check className="w-3.5 h-3.5 text-white" /> Aplicar Troca Realizada
+                            </button>
                             {match.partnerWhatsapp && (
                               <a 
                                 href={buildDoubleMatchWhatsappLink(match.partnerWhatsapp, match.partnerName, match.myRepeated, match.myMissing)}
@@ -3228,9 +3590,16 @@ export default function App() {
                                 rel="noopener noreferrer"
                                 className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                               >
-                                <Phone className="w-3.5 h-3.5 text-white animate-pulse" /> Combinar WhatsApp
+                                <Phone className="w-3.5 h-3.5 text-white" /> Combinar WhatsApp
                               </a>
                             )}
+                            <button
+                              type="button"
+                              onClick={() => handleShareTradeSummary(match.partnerName, match.myRepeated, match.myMissing)}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-300 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer select-none"
+                            >
+                              <Share2 className="w-3.5 h-3.5 text-slate-500" /> Compartilhar
+                            </button>
                           </div>
                         </div>
 
@@ -3252,7 +3621,7 @@ export default function App() {
                                     key={id} 
                                     className={`text-[10px] font-mono px-2 py-0.5 rounded-md font-bold border transition ${
                                       isSpecial 
-                                        ? 'bg-amber-100 border-amber-300 text-amber-800 shadow-sm' 
+                                        ? 'bg-amber-100 border-amber-300 text-amber-805 shadow-sm' 
                                         : 'bg-emerald-100/50 border-emerald-200/80 text-emerald-800'
                                     }`} 
                                     title={`${stk?.name || id} ${isSpecial ? '(Metalizada - 2 pts)' : '(Normal - 1 pt)'}`}
@@ -3279,7 +3648,7 @@ export default function App() {
                                     key={id} 
                                     className={`text-[10px] font-mono px-2 py-0.5 rounded-md font-bold border transition ${
                                       isSpecial 
-                                        ? 'bg-amber-100 border-amber-300 text-amber-800 shadow-sm' 
+                                        ? 'bg-amber-100 border-amber-300 text-amber-805 shadow-sm' 
                                         : 'bg-slate-100 border-slate-200 text-slate-700'
                                     }`} 
                                     title={`${stk?.name || id} ${isSpecial ? '(Metalizada - 2 pts)' : '(Normal - 1 pt)'}`}
@@ -3329,6 +3698,122 @@ export default function App() {
                             )}
                           </div>
                         </div>
+
+                        {/* Trade Confirmation Panel (Visible when this match is being confirmed) */}
+                        {confirmingTrade && confirmingTrade.partnerUid === match.partnerUid && (
+                          <div className="mt-4 p-4 bg-indigo-50/50 rounded-xl border border-indigo-200 animate-fade-in font-sans">
+                            <div className="flex items-start justify-between gap-4 mb-3">
+                              <div>
+                                <h5 className="font-extrabold text-xs text-indigo-950 uppercase tracking-wider">✏️ Confirmar Figurinhas Trocadas</h5>
+                                <p className="text-[10px] text-indigo-700/85 mt-0.5 font-bold leading-relaxed">
+                                  Nem sempre é possível trocar tudo de uma vez. Marque abaixo apenas as figurinhas que foram de fato trocadas hoje:
+                                </p>
+                              </div>
+                              <span className="text-[9px] bg-indigo-100 text-indigo-850 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 select-none">
+                                Ajuste Manual
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {/* Left Side: Gave Checkbox List */}
+                              <div className="bg-white p-3 rounded-lg border border-indigo-100">
+                                <p className="text-[10px] text-slate-500 font-mono font-bold uppercase mb-2 flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+                                  Você deu (-1 das repetidas):
+                                </p>
+                                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                                  {match.myRepeated.map(id => {
+                                    const isChecked = !!tradeGaveChecked[id];
+                                    const isSpecial = isStickerSpecial(id);
+                                    return (
+                                      <label 
+                                        key={id} 
+                                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer select-none transition-all ${
+                                          isChecked 
+                                            ? 'bg-indigo-50/50 border-indigo-200 text-slate-800 font-bold' 
+                                            : 'bg-slate-50 border-slate-200 text-slate-400'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <input 
+                                            type="checkbox" 
+                                            checked={isChecked}
+                                            onChange={() => setTradeGaveChecked(prev => ({ ...prev, [id]: !isChecked }))}
+                                            className="accent-indigo-600 rounded cursor-pointer"
+                                          />
+                                          <span className="font-mono text-slate-700 font-extrabold">{isSpecial ? '✨ ' : ''}{id}</span>
+                                        </div>
+                                        <span className="text-[9px] font-mono opacity-80 text-slate-500">
+                                          {isSpecial ? 'Metalizada' : 'Normal'}
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Right Side: Received Checkbox List */}
+                              <div className="bg-white p-3 rounded-lg border border-indigo-100">
+                                <p className="text-[10px] text-slate-550 font-mono font-bold uppercase mb-2 flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                  Você recebeu (Marcar como "Tenho"):
+                                </p>
+                                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                                  {match.myMissing.map(id => {
+                                    const isChecked = !!tradeReceivedChecked[id];
+                                    const isSpecial = isStickerSpecial(id);
+                                    return (
+                                      <label 
+                                        key={id} 
+                                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer select-none transition-all ${
+                                          isChecked 
+                                            ? 'bg-emerald-50/40 border-emerald-250 text-slate-800 font-bold' 
+                                            : 'bg-slate-50 border-slate-200 text-slate-400'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <input 
+                                            type="checkbox" 
+                                            checked={isChecked}
+                                            onChange={() => setTradeReceivedChecked(prev => ({ ...prev, [id]: !isChecked }))}
+                                            className="accent-emerald-600 rounded cursor-pointer"
+                                          />
+                                          <span className="font-mono text-slate-705 font-extrabold">{isSpecial ? '✨ ' : ''}{id}</span>
+                                        </div>
+                                        <span className="text-[9px] font-mono opacity-80 text-slate-500">
+                                          {isSpecial ? 'Metalizada' : 'Normal'}
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Options Footer */}
+                            <div className="mt-4 flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-3 border-t border-indigo-100">
+                              <span className="text-[10px] text-slate-500 font-medium sm:mr-auto">
+                                * As alterações serão sincronizadas permanentemente no seu inventário.
+                              </span>
+                              <div className="flex gap-2 w-full sm:w-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmingTrade(null)}
+                                  className="flex-1 sm:flex-none px-3 py-1.5 bg-slate-200 hover:bg-slate-250 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer select-none"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleApplyTradeConfirm}
+                                  className="flex-1 sm:flex-none px-4 py-1.5 bg-indigo-650 hover:bg-indigo-600 text-white rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer select-none"
+                                >
+                                  <Check className="w-3.5 h-3.5 text-white" /> Aplicar Troca (-1, "Tenho")
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -3382,16 +3867,16 @@ export default function App() {
                     }
 
                     return missingMatchesGroups.map((group) => {
-                      const isExpanded = expandedPartnersMissing[group.partnerUid] ?? false;
+                      const isExpanded = expandedPartnersMissing[group.partnerUid] ?? true;
                       return (
-                        <div key={group.partnerUid} className="bg-white rounded-xl border border-slate-200 overflow-hidden transition shadow-sm">
+                        <div key={group.partnerUid} className="bg-white rounded-xl border border-slate-200 overflow-hidden transition shadow-sm animate-fade-in font-sans">
                           {/* Header of the Collector Group */}
                           <button 
                             type="button"
                             onClick={() => setExpandedPartnersMissing(prev => ({ ...prev, [group.partnerUid]: !isExpanded }))}
-                            className="w-full text-left p-3 flex items-center justify-between hover:bg-slate-550/5 transition select-none"
+                            className="w-full text-left p-3.5 flex items-center justify-between hover:bg-slate-50 transition select-none cursor-pointer active:bg-slate-100"
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 pointer-events-none">
                               <img src={`https://api.dicebear.com/7.x/identicon/svg?seed=${group.partnerUid}`} alt="avatar" className="w-8 h-8 rounded bg-emerald-50 border border-emerald-150" />
                               <div>
                                 <p className="font-extrabold text-xs text-slate-800">{group.partnerName}</p>
@@ -3401,24 +3886,24 @@ export default function App() {
                               </div>
                             </div>
                             
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 pointer-events-none">
                               {group.partnerWhatsapp && (
                                 <span className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider font-mono">
                                   WhatsApp
                                 </span>
                               )}
-                              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'transform rotate-180 text-emerald-600' : ''}`} />
                             </div>
                           </button>
 
                           {/* Expanded content */}
                           {isExpanded && (
-                            <div className="border-t border-slate-100 bg-slate-50/40 p-3 space-y-2">
+                            <div className="border-t border-slate-100 bg-slate-50/40 p-3 space-y-2.5">
                               {group.stickers.map((stk) => {
                                 const isSpecial = isStickerSpecial(stk.stickerId);
                                 return (
-                                  <div key={stk.stickerId} className="bg-white p-2.5 rounded-lg border border-slate-150 flex items-center justify-between gap-4 text-xs transition shadow-sm">
-                                    <div className="flex items-center gap-2">
+                                  <div key={stk.stickerId} className="bg-white p-3 sm:p-2.5 rounded-lg border border-slate-150 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition shadow-sm">
+                                    <div className="flex items-center gap-2 flex-wrap min-h-[32px]">
                                       <p className={`font-mono font-black py-0.5 px-1.5 rounded inline-block text-[11px] border ${
                                         isSpecial 
                                           ? 'bg-amber-100 border-amber-300 text-amber-805 shadow-sm' 
@@ -3436,10 +3921,10 @@ export default function App() {
                                         href={buildSingleMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, stk.stickerId, stk.type)}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="py-1 px-2.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200 text-slate-605 rounded-lg transition-all cursor-pointer font-semibold flex items-center gap-1.5 text-[11px]"
+                                        className="py-2.5 sm:py-1 px-3 sm:px-2.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-205 border border-slate-205 text-slate-655 rounded-lg transition-all cursor-pointer font-semibold flex items-center justify-center gap-1.5 text-xs sm:text-[11px] w-full sm:w-auto min-h-[44px] sm:min-h-0"
                                         title="Chamar no WhatsApp"
                                       >
-                                        <Phone className="w-3 h-3 text-emerald-600 shrink-0" /> Combinar Troca
+                                        <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Combinar Troca
                                       </a>
                                     )}
                                   </div>
@@ -3495,16 +3980,16 @@ export default function App() {
                     }
 
                     return repeatedMatchesGroups.map((group) => {
-                      const isExpanded = expandedPartnersRepeated[group.partnerUid] ?? false;
+                      const isExpanded = expandedPartnersRepeated[group.partnerUid] ?? true;
                       return (
-                        <div key={group.partnerUid} className="bg-white rounded-xl border border-slate-200 overflow-hidden transition shadow-sm">
+                        <div key={group.partnerUid} className="bg-white rounded-xl border border-slate-200 overflow-hidden transition shadow-sm animate-fade-in font-sans">
                           {/* Header of the Collector Group */}
                           <button 
                             type="button"
                             onClick={() => setExpandedPartnersRepeated(prev => ({ ...prev, [group.partnerUid]: !isExpanded }))}
-                            className="w-full text-left p-3 flex items-center justify-between hover:bg-slate-550/5 transition select-none"
+                            className="w-full text-left p-3.5 flex items-center justify-between hover:bg-slate-50 transition select-none cursor-pointer active:bg-slate-100"
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 pointer-events-none">
                               <img src={`https://api.dicebear.com/7.x/identicon/svg?seed=${group.partnerUid}`} alt="avatar" className="w-8 h-8 rounded bg-emerald-50 border border-emerald-150" />
                               <div>
                                 <p className="font-extrabold text-xs text-slate-800">{group.partnerName}</p>
@@ -3514,24 +3999,24 @@ export default function App() {
                               </div>
                             </div>
                             
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 pointer-events-none">
                               {group.partnerWhatsapp && (
                                 <span className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider font-mono">
                                   WhatsApp
                                 </span>
                               )}
-                              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'transform rotate-180 text-emerald-600' : ''}`} />
                             </div>
                           </button>
 
                           {/* Expanded content */}
                           {isExpanded && (
-                            <div className="border-t border-slate-100 bg-slate-50/40 p-3 space-y-2">
+                            <div className="border-t border-slate-100 bg-slate-50/40 p-3 space-y-2.5">
                               {group.stickers.map((stk) => {
                                 const isSpecial = isStickerSpecial(stk.stickerId);
                                 return (
-                                  <div key={stk.stickerId} className="bg-white p-2.5 rounded-lg border border-slate-150 flex items-center justify-between gap-4 text-xs transition shadow-sm">
-                                    <div className="flex items-center gap-2">
+                                  <div key={stk.stickerId} className="bg-white p-3 sm:p-2.5 rounded-lg border border-slate-150 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition shadow-sm">
+                                    <div className="flex items-center gap-2 flex-wrap min-h-[32px]">
                                       <p className={`font-mono font-black py-0.5 px-1.5 rounded inline-block text-[11px] border ${
                                         isSpecial 
                                           ? 'bg-amber-100 border-amber-305 text-amber-850 shadow-sm' 
@@ -3549,10 +4034,10 @@ export default function App() {
                                         href={buildSingleMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, stk.stickerId, stk.type)}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="py-1 px-2.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200 text-slate-605 rounded-lg transition-all cursor-pointer font-semibold flex items-center gap-1.5 text-[11px]"
+                                        className="py-2.5 sm:py-1 px-3 sm:px-2.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-250 border border-slate-205 text-slate-655 rounded-lg transition-all cursor-pointer font-semibold flex items-center justify-center gap-1.5 text-xs sm:text-[11px] w-full sm:w-auto min-h-[44px] sm:min-h-0"
                                         title="Chamar no WhatsApp"
                                       >
-                                        <Phone className="w-3 h-3 text-emerald-600 shrink-0" /> Combinar Troca
+                                        <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Combinar Troca
                                       </a>
                                     )}
                                   </div>

@@ -33,10 +33,13 @@ export default function Auth({ onSuccess }: AuthProps) {
     const cachedUsers = localStorage.getItem('copa_public_stats_users');
     const cachedRepeated = localStorage.getItem('copa_public_stats_repeated');
     return {
-      users: cachedUsers ? parseInt(cachedUsers, 10) : 5,
-      repeated: cachedRepeated ? parseInt(cachedRepeated, 10) : 500
+      users: cachedUsers ? parseInt(cachedUsers, 10) : 3,
+      repeated: cachedRepeated ? parseInt(cachedRepeated, 10) : 300
     };
   });
+
+  // Track if this is a repeat visit (access after first-time login)
+  const [hasVisited, setHasVisited] = useState(() => localStorage.getItem('copa_visited') === 'true');
 
   // Real-time general activity stats fetch from the aggregate system stats document
   React.useEffect(() => {
@@ -44,8 +47,8 @@ export default function Auth({ onSuccess }: AuthProps) {
     const unsub = onSnapshot(statsDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        const liveUsers = Number(data.users || 5);
-        const liveRepeated = Number(data.repeated || 500);
+        const liveUsers = Number(data.users || 3);
+        const liveRepeated = Number(data.repeated || 300);
         setTotals({
           users: liveUsers,
           repeated: liveRepeated
@@ -182,32 +185,34 @@ export default function Auth({ onSuccess }: AuthProps) {
         </div>
 
         {/* Potencial de Troca / Live Stats */}
-        <div id="live_stats_card" className="relative z-10 my-6 bg-white/60 backdrop-blur-md rounded-2xl p-4 border border-emerald-100/80 shadow-sm">
-          <p className="text-[10px] font-mono uppercase font-extrabold tracking-wider text-emerald-800 mb-3 flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            Atividade Geral do Sistema
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white/90 p-3.5 rounded-xl border border-slate-200/60 flex flex-col shadow-sm">
-              <span className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight font-sans">
-                <span className="animate-fade-in">{totals.users}</span>
+        {hasVisited && (
+          <div id="live_stats_card" className="relative z-10 my-6 bg-white/60 backdrop-blur-md rounded-2xl p-4 border border-emerald-100/80 shadow-sm animate-fade-in">
+            <p className="text-[10px] font-mono uppercase font-extrabold tracking-wider text-emerald-800 mb-3 flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-[11px] text-slate-500 font-bold mt-1">Colecionadores</span>
+              Atividade Geral do Sistema
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white/90 p-3.5 rounded-xl border border-slate-200/60 flex flex-col shadow-sm">
+                <span className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight font-sans">
+                  <span className="animate-fade-in">{totals.users}</span>
+                </span>
+                <span className="text-[11px] text-slate-500 font-bold mt-1">Colecionadores</span>
+              </div>
+              <div className="bg-white/90 p-3.5 rounded-xl border border-slate-200/60 flex flex-col shadow-sm">
+                <span className="text-2xl md:text-3xl font-black text-emerald-700 tracking-tight font-sans">
+                  <span className="animate-fade-in">{totals.repeated}</span>
+                </span>
+                <span className="text-[11px] text-slate-500 font-bold mt-1">Figurinhas Repetidas</span>
+              </div>
             </div>
-            <div className="bg-white/90 p-3.5 rounded-xl border border-slate-200/60 flex flex-col shadow-sm">
-              <span className="text-2xl md:text-3xl font-black text-emerald-700 tracking-tight font-sans">
-                <span className="animate-fade-in">{totals.repeated}</span>
-              </span>
-              <span className="text-[11px] text-slate-500 font-bold mt-1">Figurinhas Repetidas</span>
-            </div>
+            <p className="text-[10px] text-slate-500 mt-3 leading-normal font-medium">
+              🔥 Trocas 1x1 recíprocas são calculadas em tempo real assim que você adiciona suas figurinhas repetidas e faltantes!
+            </p>
           </div>
-          <p className="text-[10px] text-slate-500 mt-3 leading-normal font-medium">
-            🔥 Trocas 1x1 recíprocas são calculadas em tempo real assim que você adiciona suas figurinhas repetidas e faltantes!
-          </p>
-        </div>
+        )}
 
         {/* Feature List */}
         <div className="relative z-10 my-10 space-y-4">
