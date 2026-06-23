@@ -238,6 +238,7 @@ export default function App() {
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [expandedPartnersMissing, setExpandedPartnersMissing] = useState<Record<string, boolean>>({});
   const [expandedPartnersRepeated, setExpandedPartnersRepeated] = useState<Record<string, boolean>>({});
+  const [collapsedRepeatedTeams, setCollapsedRepeatedTeams] = useState<Record<string, boolean>>({});
 
   const triggerNotification = (title: string, description: string) => {
     const toastId = Math.random().toString(36).substring(2, 9);
@@ -682,7 +683,13 @@ export default function App() {
     const current = myStickers[stickerId];
     if (!current || current.status !== 'repeated') return;
 
-    const newQty = Math.max(1, (current.quantity || 1) + delta);
+    const newQty = (current.quantity || 1) + delta;
+
+    if (newQty <= 0) {
+      await handleSetStickerStatus(stickerId, 'owned');
+      triggerNotification("Status alterado 📂", `Código ${stickerId} atualizado para status "Tenho".`);
+      return;
+    }
 
     if (user.uid.startsWith('demo_')) {
       const currentMap = { ...myStickers };
@@ -2081,12 +2088,19 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           
           {/* Logo Title */}
-          <div className="flex items-center gap-3">
-            <span className="text-2xl" role="img" aria-label="trofeu">🏆</span>
+          <div className="flex items-center gap-2.5">
+            <div className="relative p-0.5 bg-white rounded-xl shadow-xs border border-emerald-100/50 shrink-0 select-none">
+              <img 
+                src="/app_icon.jpg" 
+                alt="Logo Copa 2026" 
+                className="w-9 h-9 rounded-lg object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </div>
             <div>
               <h1 className="font-extrabold text-base tracking-tight sm:text-lg flex items-center gap-1.5 text-slate-900">
                 Álbum Copa do Mundo 2026 
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2' py-0.5 rounded-full border border-emerald-200 font-bold font-mono">
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 font-bold font-mono">
                   TROCA BRASIL
                 </span>
               </h1>
@@ -2649,6 +2663,193 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Dynamic Repeated Stickers Statistics */}
+                  {(() => {
+                    const stats_allRepeated = (Object.values(myStickers) as any[]).filter(st => st.status === 'repeated');
+                    const stats_totalCopies = stats_allRepeated.reduce((acc, curr) => acc + (curr.quantity || 1), 0);
+                    const stats_totalUnique = stats_allRepeated.length;
+
+                    if (stats_totalCopies === 0) return null;
+
+                    const stats_items = stats_allRepeated.map(st => {
+                      const originalSt = STICKERS.find(s => s.id === st.stickerId);
+                      const teamInfo = TEAMS.find(t => t.code === originalSt?.teamCode);
+                      return {
+                        ...st,
+                        originalSt,
+                        teamInfo
+                      };
+                    });
+
+                    const stats_specialsCopies = stats_items.filter(item => item.originalSt?.isSpecial).reduce((acc, curr) => acc + (curr.quantity || 1), 0);
+                    const stats_normalsCopies = stats_items.filter(item => !item.originalSt?.isSpecial).reduce((acc, curr) => acc + (curr.quantity || 1), 0);
+
+                    // Group by team/selection
+                    const stats_teamMap: Record<string, {
+                      teamCode: string;
+                      teamName: string;
+                      flagUrl: string;
+                      totalQuantity: number;
+                      specialsCount: number;
+                      normalsCount: number;
+                    }> = {};
+
+                    stats_items.forEach(item => {
+                      if (!item.originalSt) return;
+                      const tCode = item.originalSt.teamCode;
+                      const tName = item.teamInfo?.name || (tCode === 'FIFA' ? 'FIFA / Especiais' : tCode);
+                      const tFlag = item.teamInfo?.flagUrl || (tCode === 'FIFA' ? '🏆' : '✨');
+
+                      if (!stats_teamMap[tCode]) {
+                        stats_teamMap[tCode] = {
+                          teamCode: tCode,
+                          teamName: tName,
+                          flagUrl: tFlag,
+                          totalQuantity: 0,
+                          specialsCount: 0,
+                          normalsCount: 0
+                        };
+                      }
+
+                      const q = item.quantity || 1;
+                      stats_teamMap[tCode].totalQuantity += q;
+                      if (item.originalSt.isSpecial) {
+                        stats_teamMap[tCode].specialsCount += q;
+                      } else {
+                        stats_teamMap[tCode].normalsCount += q;
+                      }
+                    });
+
+                    const stats_teamsList = Object.values(stats_teamMap).sort((a, b) => b.totalQuantity - a.totalQuantity);
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-sans animate-fade-in">
+                        {/* Card 1: Brilhantes vs Normais */}
+                        <div className="bg-white border border-slate-200 shadow-xs rounded-2xl p-4 flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between mb-3 pb-2 border-b border-rose-100/50">
+                              <h4 className="font-extrabold text-xs text-slate-800 flex items-center gap-1.5 uppercase font-mono tracking-wider">
+                                <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" /> Tipo de Figurinha
+                              </h4>
+                              <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-black font-mono">
+                                {stats_totalUnique} ÚNICAS
+                              </span>
+                            </div>
+
+                            <div className="space-y-4">
+                              {/* Visual Progress Stack */}
+                              <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden flex border border-slate-200">
+                                {stats_specialsCopies > 0 && (
+                                  <div 
+                                    style={{ width: `${(stats_specialsCopies / stats_totalCopies) * 100}%` }}
+                                    className="h-full bg-gradient-to-r from-amber-400 to-amber-500 relative"
+                                  />
+                                )}
+                                {stats_normalsCopies > 0 && (
+                                  <div 
+                                    style={{ width: `${(stats_normalsCopies / stats_totalCopies) * 100}%` }}
+                                    className="h-full bg-emerald-500"
+                                  />
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2.5">
+                                <div className="bg-gradient-to-br from-amber-50/40 to-amber-50 rounded-xl p-3 border border-amber-100 flex flex-col justify-between">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs">✨</span>
+                                    <span className="text-[10px] font-black text-amber-800 uppercase tracking-wide">Brilhantes</span>
+                                  </div>
+                                  <div className="mt-2 text-lg font-black text-slate-800 leading-none">
+                                    {stats_specialsCopies} <span className="text-xs font-normal text-slate-500">und</span>
+                                  </div>
+                                  <div className="text-[9px] text-slate-500 mt-1 font-mono font-bold">
+                                    {stats_totalCopies > 0 ? Math.round((stats_specialsCopies / stats_totalCopies) * 100) : 0}% das repetidas
+                                  </div>
+                                </div>
+
+                                <div className="bg-gradient-to-br from-emerald-50/10 to-emerald-50/40 rounded-xl p-3 border border-emerald-100 flex flex-col justify-between">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs">🃏</span>
+                                    <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wide">Normais</span>
+                                  </div>
+                                  <div className="mt-2 text-lg font-black text-slate-800 leading-none">
+                                    {stats_normalsCopies} <span className="text-xs font-normal text-slate-500">und</span>
+                                  </div>
+                                  <div className="text-[9px] text-slate-500 mt-1 font-mono font-bold">
+                                    {stats_totalCopies > 0 ? Math.round((stats_normalsCopies / stats_totalCopies) * 100) : 0}% das repetidas
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-slate-100 text-[10px] text-slate-500 leading-relaxed bg-amber-50/[0.15] p-2 rounded-lg border border-amber-500/10">
+                            💡 <strong>Sabia que:</strong> Figurinhas brilhantes (SP/Escudo) são consideradas raras no app e valem o dobro (<strong>2 pontos</strong>) ao calcular o equilíbrio de matches!
+                          </div>
+                        </div>
+
+                        {/* Card 2: Detalhes por Seleção */}
+                        <div className="bg-white border border-slate-200 shadow-xs rounded-2xl p-4 flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between mb-3 pb-2 border-b border-rose-100/50">
+                              <h4 className="font-extrabold text-xs text-slate-800 flex items-center gap-1.5 uppercase font-mono tracking-wider">
+                                <TrendingUp className="w-4 h-4 text-emerald-600" /> Detalhes por Seleção
+                              </h4>
+                              <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-black font-mono">
+                                {stats_teamsList.length} SELEÇÕES
+                              </span>
+                            </div>
+
+                            <div className="space-y-1.5 max-h-[145px] overflow-y-auto pr-1">
+                              {stats_teamsList.slice(0, 4).map((teamGroup) => (
+                                <div key={teamGroup.teamCode} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition duration-150">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-lg leading-none select-none">{teamGroup.flagUrl}</span>
+                                    <div className="min-w-0">
+                                      <p className="font-extrabold text-xs text-slate-850 truncate">{teamGroup.teamName}</p>
+                                      <p className="text-[9px] text-slate-400 font-bold font-mono">CÓDIGO: {teamGroup.teamCode}</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <div className="flex gap-1.5">
+                                      {teamGroup.specialsCount > 0 && (
+                                        <span className="text-[8px] font-bold bg-amber-50/70 text-amber-700 border border-amber-100 px-1 py-0.5 rounded font-mono">
+                                          ✨ {teamGroup.specialsCount}
+                                        </span>
+                                      )}
+                                      {teamGroup.normalsCount > 0 && (
+                                        <span className="text-[8px] font-bold bg-slate-50 text-slate-500 border border-slate-200 px-1 py-0.5 rounded font-mono">
+                                          🃏 {teamGroup.normalsCount}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="bg-emerald-50 text-emerald-800 border border-emerald-100 text-[10px] font-extrabold font-mono px-2 py-0.5 rounded-lg">
+                                      {teamGroup.totalQuantity} un
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {stats_teamsList.length > 4 && (
+                                <div className="text-center py-1 bg-slate-50 border border-slate-100 rounded-lg text-[9px] text-slate-500 font-bold">
+                                  + {stats_teamsList.length - 4} outras seleções com repetidas
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                            <span>Maior estoque de repetidas:</span>
+                            <span className="font-extrabold text-slate-800 flex items-center gap-1 leading-none">
+                              {stats_teamsList[0]?.flagUrl} {stats_teamsList[0]?.teamName} ({stats_teamsList[0]?.totalQuantity} un)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Fast Add form */}
                   <form onSubmit={handleFastAddRepeated} className="bg-slate-50/60 border border-dashed border-slate-300 p-4 rounded-2xl flex flex-col gap-3">
                     <div className="flex flex-col gap-1.5 font-sans">
@@ -2715,66 +2916,138 @@ export default function App() {
                       );
                     }
 
+                    // Group repeated stickers by team/selection
+                    const groupedByTeam: Record<string, {
+                      teamCode: string;
+                      teamName: string;
+                      flagUrl: string;
+                      stickers: typeof repeatedStickers;
+                    }> = {};
+
+                    repeatedStickers.forEach(item => {
+                      if (!item.originalSt) return;
+                      const code = item.originalSt.teamCode;
+                      if (!groupedByTeam[code]) {
+                        const tName = item.teamInfo?.name || (code === 'FIFA' ? 'FIFA / Especiais' : code);
+                        const tFlag = item.teamInfo?.flagUrl || (code === 'FIFA' ? '🏆' : '✨');
+                        groupedByTeam[code] = {
+                          teamCode: code,
+                          teamName: tName,
+                          flagUrl: tFlag,
+                          stickers: []
+                        };
+                      }
+                      groupedByTeam[code].stickers.push(item);
+                    });
+
+                    const sortedGroups = Object.values(groupedByTeam).sort((a, b) => {
+                      const idxA = TEAMS.findIndex(t => t.code === a.teamCode);
+                      const idxB = TEAMS.findIndex(t => t.code === b.teamCode);
+                      return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
+                    });
+
+                    const toggleGroup = (code: string) => {
+                      setCollapsedRepeatedTeams(prev => ({
+                        ...prev,
+                        [code]: !prev[code]
+                      }));
+                    };
+
                     return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 font-sans">
-                        {repeatedStickers.map(item => {
-                          if (!item.originalSt) return null;
+                      <div className="flex flex-col gap-3 font-sans">
+                        {sortedGroups.map((group) => {
+                          const isExpanded = !collapsedRepeatedTeams[group.teamCode];
                           return (
-                            <div 
-                              key={item.stickerId} 
-                              className="border border-slate-150 rounded-xl p-3 flex items-center justify-between gap-4 bg-white shadow-xs hover:border-slate-300 transition"
-                            >
-                              <div className="flex items-center gap-3">
-                                {/* Sticker square badge */}
-                                <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 font-mono font-black text-xs flex items-center justify-center shrink-0 font-sans">
-                                  {item.originalSt.number}
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
-                                    <span>{item.originalSt.name}</span>
-                                    {item.originalSt.isSpecial && (
-                                      <span className="text-[8px] bg-amber-100 text-amber-800 font-mono px-1 py-0.5 rounded font-black">SP</span>
-                                    )}
-                                  </div>
-                                  <div className="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center gap-1 font-sans">
-                                    <span className="text-xs leading-none select-none">{item.teamInfo?.flagUrl}</span>
-                                    <span>{item.teamInfo?.name} •</span>
-                                    <span className="font-mono font-bold text-slate-700">{item.stickerId}</span>
+                            <div key={group.teamCode} className="border border-slate-200 rounded-2xl bg-white overflow-hidden shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={() => toggleGroup(group.teamCode)}
+                                className="w-full flex items-center justify-between p-3 bg-slate-50/50 hover:bg-slate-100/50 active:bg-slate-100 transition select-none cursor-pointer border-b border-slate-100"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xl leading-none select-none">{group.flagUrl}</span>
+                                  <div className="text-left">
+                                    <span className="font-extrabold text-xs text-slate-800">{group.teamName}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 font-mono ml-1.5">({group.teamCode})</span>
                                   </div>
                                 </div>
-                              </div>
-
-                              <div className="flex items-center gap-3 shrink-0">
-                                {/* Quantity Toggler */}
-                                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 p-0.5 rounded-lg">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleIncrementQuantity(item.stickerId, -1)}
-                                    className="w-5.5 h-5.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/60 text-xs font-black flex items-center justify-center cursor-pointer"
-                                  >
-                                    -
-                                  </button>
-                                  <span className="text-xs font-black font-mono w-4 text-center text-slate-800">
-                                    {item.quantity || 1}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-100 font-mono">
+                                    {group.stickers.length} {group.stickers.length === 1 ? 'figurinha' : 'figurinhas'} ({group.stickers.reduce((sum, s) => sum + (s.quantity || 1), 0)} un)
                                   </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleIncrementQuantity(item.stickerId, 1)}
-                                    className="w-5.5 h-5.5 rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/60 text-xs font-black flex items-center justify-center cursor-pointer"
-                                  >
-                                    +
-                                  </button>
+                                  {isExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 transform rotate-180 transition-transform duration-200" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" />
+                                  )}
                                 </div>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleSetStickerStatus(item.stickerId, 'missing')}
-                                  title="Remover repetida"
-                                  className="p-1.5 bg-white border border-slate-200 text-slate-450 hover:bg-red-50 hover:text-red-600 hover:border-red-200 rounded-lg transition cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
+                              {isExpanded && (
+                                <div className="p-2.5 bg-white">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                    {group.stickers.map(item => {
+                                      if (!item.originalSt) return null;
+                                      return (
+                                        <div 
+                                          key={item.stickerId}
+                                          className="flex items-center justify-between gap-1.5 p-1.5 bg-slate-50/70 hover:bg-slate-100/80 border border-slate-150 rounded-xl transition duration-150"
+                                        >
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <div className={`w-7 h-7 rounded-lg text-[10px] font-mono font-black flex items-center justify-center shrink-0 ${item.originalSt.isSpecial ? 'bg-amber-100 border border-amber-300 text-amber-800' : 'bg-slate-200 border border-slate-300 text-slate-700'}`}>
+                                              {item.originalSt.number}
+                                            </div>
+                                            <div className="min-w-0">
+                                              <p className="font-extrabold text-[11px] text-slate-850 truncate leading-tight select-none">
+                                                {item.originalSt.name}
+                                              </p>
+                                              <p className="text-[9px] font-bold font-mono text-slate-450 leading-none flex items-center gap-1 mt-0.5">
+                                                {item.stickerId}
+                                                {item.originalSt.isSpecial && <span className="text-[7.5px] font-black text-amber-600 bg-amber-50 px-0.5 rounded border border-amber-200">✨ SP</span>}
+                                              </p>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            {/* Quantity Selector */}
+                                            <div className="flex items-center bg-white border border-slate-200 p-0.5 rounded-lg shadow-2xs">
+                                              <button
+                                                type="button"
+                                                onClick={() => handleIncrementQuantity(item.stickerId, -1)}
+                                                className="w-4.5 h-4.5 rounded bg-slate-50 hover:bg-slate-100 text-slate-600 active:bg-slate-250 text-[10px] font-black flex items-center justify-center cursor-pointer select-none transition"
+                                                title="Diminuir (0 move para Adquiridas)"
+                                              >
+                                                -
+                                              </button>
+                                              <span className="text-[10px] font-black font-mono w-4.5 text-center text-slate-850">
+                                                {item.quantity || 1}
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleIncrementQuantity(item.stickerId, 1)}
+                                                className="w-4.5 h-4.5 rounded bg-slate-50 hover:bg-slate-100 text-slate-600 active:bg-slate-250 text-[10px] font-black flex items-center justify-center cursor-pointer select-none transition"
+                                                title="Aumentar"
+                                              >
+                                                +
+                                              </button>
+                                            </div>
+
+                                            {/* Remove button */}
+                                            <button
+                                              type="button"
+                                              onClick={() => handleSetStickerStatus(item.stickerId, 'missing')}
+                                              title="Remover repetida"
+                                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition cursor-pointer"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}

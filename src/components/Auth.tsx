@@ -173,9 +173,24 @@ export default function Auth({ onSuccess }: AuthProps) {
         
         {/* Top Branding Header */}
         <div className="relative z-10">
-          <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold font-mono mb-6">
-            🤝 Troque suas figurinhas com outros colecionadores
+          {/* Logo / Icon presentation */}
+          <div className="flex items-center gap-3.5 mb-5 select-none animate-fade-in">
+            <div className="relative p-1 bg-white rounded-2xl shadow-sm border border-emerald-100 shrink-0">
+              <img 
+                src="/app_icon.jpg" 
+                alt="Logo Figurinhas Copa 2026" 
+                className="w-12 h-12 rounded-xl object-cover"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white px-1.5 rounded-full border-2 border-white text-[8px] font-black font-mono shadow-xs">
+                26
+              </div>
+            </div>
+            <div className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/60 text-emerald-850 text-[10px] font-bold uppercase tracking-wider font-mono">
+              🤝 Troca Inteligente
+            </div>
           </div>
+
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-none bg-gradient-to-r from-emerald-600 via-sky-600 to-amber-500 bg-clip-text text-transparent">
             Figurinhas Copa 2026
           </h1>
@@ -255,7 +270,15 @@ export default function Auth({ onSuccess }: AuthProps) {
       <div className="md:w-1/2 flex items-center justify-center p-8 md:p-16 bg-white">
         <div id="auth_card" className="w-full max-w-md bg-white border border-slate-200/80 rounded-2xl p-6 md:p-8 shadow-xl relative">
           
-          <div className="text-center mb-8">
+          <div className="text-center mb-8 flex flex-col items-center">
+            <div className="relative p-0.5 bg-white rounded-xl shadow-xs border border-slate-100 mb-3 select-none md:hidden block shrink-0">
+              <img 
+                src="/app_icon.jpg" 
+                alt="Logo Copa 2026" 
+                className="w-10 h-10 rounded-lg object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </div>
             <h2 className="text-2xl font-bold tracking-tight text-slate-800">
               Conectar Conta Firebase
             </h2>
