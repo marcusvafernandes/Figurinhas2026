@@ -177,7 +177,7 @@ export default function Auth({ onSuccess }: AuthProps) {
           <div className="flex items-center gap-3.5 mb-5 select-none animate-fade-in">
             <div className="relative p-1 bg-white rounded-2xl shadow-sm border border-emerald-100 shrink-0">
               <img 
-                src="/app_icon.jpg" 
+                src="/app_icon.png" 
                 alt="Logo Figurinhas Copa 2026" 
                 className="w-12 h-12 rounded-xl object-cover"
                 referrerPolicy="no-referrer"
@@ -195,7 +195,7 @@ export default function Auth({ onSuccess }: AuthProps) {
             Figurinhas Copa 2026
           </h1>
           <p className="mt-4 text-slate-600 max-w-sm text-sm md:text-base leading-relaxed">
-            Gerencie seu álbum, marque suas figurinhas repetidas e faltantes, e encontre trocas perfeitas de forma 100% automatizada no Firebase.
+            Gerencie seu álbum, marque suas figurinhas repetidas e faltantes, e encontre trocas perfeitas de forma 100% automatizada.
           </p>
         </div>
 
@@ -261,19 +261,22 @@ export default function Auth({ onSuccess }: AuthProps) {
         </div>
 
         {/* Bottom design credits */}
-        <div className="relative z-10 text-xs text-slate-400 font-mono">
-          © 2026 Copa Sticker Matcher Engine. Todos os direitos reservados.
+        <div className="relative z-10 space-y-1 text-xs text-slate-400 font-mono">
+          <p>© 2026 Copa Sticker Matcher Engine. Todos os direitos reservados.</p>
+          <p className="text-[11px] font-sans font-bold text-slate-500 flex items-center gap-1.5">
+            👨‍💻 Criado por <span className="text-emerald-800 font-extrabold">Marcus Fernandes</span>
+          </p>
         </div>
       </div>
 
       {/* Auth Interaction Form Panel */}
-      <div className="md:w-1/2 flex items-center justify-center p-8 md:p-16 bg-white">
+      <div className="md:w-1/2 flex items-center justify-center p-8 md:p-16 bg-white relative">
         <div id="auth_card" className="w-full max-w-md bg-white border border-slate-200/80 rounded-2xl p-6 md:p-8 shadow-xl relative">
           
           <div className="text-center mb-8 flex flex-col items-center">
             <div className="relative p-0.5 bg-white rounded-xl shadow-xs border border-slate-100 mb-3 select-none md:hidden block shrink-0">
               <img 
-                src="/app_icon.jpg" 
+                src="/app_icon.png" 
                 alt="Logo Copa 2026" 
                 className="w-10 h-10 rounded-lg object-cover"
                 referrerPolicy="no-referrer"
@@ -426,6 +429,10 @@ export default function Auth({ onSuccess }: AuthProps) {
           </div>
 
         </div>
+
+        <p className="absolute bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 font-mono text-center w-full block md:hidden whitespace-nowrap">
+          Criado por <span className="font-extrabold text-slate-500">Marcus Fernandes</span>
+        </p>
       </div>
 
     </div>

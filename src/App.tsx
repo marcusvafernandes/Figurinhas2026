@@ -2091,7 +2091,7 @@ export default function App() {
           <div className="flex items-center gap-2.5">
             <div className="relative p-0.5 bg-white rounded-xl shadow-xs border border-emerald-100/50 shrink-0 select-none">
               <img 
-                src="/app_icon.jpg" 
+                src="/app_icon.png" 
                 alt="Logo Copa 2026" 
                 className="w-9 h-9 rounded-lg object-cover"
                 referrerPolicy="no-referrer"
@@ -4735,7 +4735,10 @@ export default function App() {
       <footer className="mt-12 bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-600 font-mono">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 font-semibold">
           <p>⚽ Copa do Mundo 2026</p>
-          <p className="text-[10px] text-slate-500">Conectado via Firebase Firestore Real-Time Stream Cluster</p>
+          <p className="text-[11px] text-slate-500 font-sans font-bold flex items-center gap-1.5">
+            👨‍💻 Criado por <span className="text-emerald-700 font-extrabold">Marcus Fernandes</span>
+          </p>
+          <p className="text-[10px] text-slate-400">Conectado via Firebase Firestore Real-Time Stream Cluster</p>
         </div>
       </footer>
 
