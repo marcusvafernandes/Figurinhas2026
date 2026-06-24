@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { onAuthStateChanged, signOut, updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { onAuthStateChanged, signOut, updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword, EmailAuthProvider, reauthenticateWithCredential, updatePassword, deleteUser } from 'firebase/auth';
 import { 
   collection, 
   doc, 
@@ -15,7 +15,8 @@ import {
   getDoc,
   writeBatch,
   query,
-  where
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { TEAMS, STICKERS, STICKERS_BY_TEAM } from './data';
@@ -65,7 +66,8 @@ import {
   Upload,
   ShieldCheck,
   LayoutGrid,
-  List
+  List,
+  History
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
@@ -247,6 +249,41 @@ export default function App() {
   const [authFormLoading, setAuthFormLoading] = useState(false);
   const [authFormError, setAuthFormError] = useState<string | null>(null);
   const [showLocalBypassFallback, setShowLocalBypassFallback] = useState(false);
+  
+  // User Security / Admin actions inside Meu Perfil
+  const [currentPasswordChange, setCurrentPasswordChange] = useState('');
+  const [newPasswordChange, setNewPasswordChange] = useState('');
+  const [confirmNewPasswordChange, setConfirmNewPasswordChange] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState<string | null>(null);
+
+  const [currentPasswordDelete, setCurrentPasswordDelete] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Trade History state
+  const [tradeHistory, setTradeHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) {
+      setTradeHistory([]);
+      return;
+    }
+    const stored = localStorage.getItem(`copa_trade_history_${user.uid}`);
+    if (stored) {
+      try {
+        setTradeHistory(JSON.parse(stored));
+      } catch (e) {
+        console.error("Error parsing trade history", e);
+        setTradeHistory([]);
+      }
+    } else {
+      setTradeHistory([]);
+    }
+  }, [user]);
+
   const [bulkLoading, setBulkLoading] = useState(false);
   
   // Custom album filters
@@ -904,6 +941,28 @@ export default function App() {
         });
       }
 
+      // Record trade in history
+      const newTradeRecord = {
+        id: `trade_${Date.now()}`,
+        partnerUid: confirmingTrade.partnerUid,
+        partnerName: confirmingTrade.partnerName,
+        date: new Date().toISOString(),
+        stickersGiven: stickersToGive,
+        stickersReceived: stickersToReceive
+      };
+      try {
+        const existingHistoryStr = localStorage.getItem(`copa_trade_history_${user.uid}`);
+        let existingHistory = [];
+        if (existingHistoryStr) {
+          existingHistory = JSON.parse(existingHistoryStr);
+        }
+        const updatedHistory = [newTradeRecord, ...existingHistory];
+        localStorage.setItem(`copa_trade_history_${user.uid}`, JSON.stringify(updatedHistory));
+        setTradeHistory(updatedHistory);
+      } catch (historyErr) {
+        console.error("Failed to save trade to history:", historyErr);
+      }
+
       triggerNotification(
         "Troca Aplicada! 🎉", 
         `Seu inventário foi atualizado com sucesso (${stickersToGive.length} dadas e ${stickersToReceive.length} recebidas).`
@@ -1126,7 +1185,7 @@ export default function App() {
       return `${team}: ${itemsStr}`;
     });
 
-    return `${intro}\n${lines.join('\n')}`;
+    return `${intro}\n${lines.join('\n')}\n\nOrganizado com Figurinhas Copa 2026! Gerencie e troque figurinhas em: https://figurinhas2026-rust.vercel.app/`;
   };
 
   const handleImportStickersSubmit = async (e: React.FormEvent) => {
@@ -1691,6 +1750,124 @@ export default function App() {
     }
   };
 
+  // Change Password Handler
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePasswordError(null);
+    setChangePasswordSuccess(null);
+
+    if (!newPasswordChange || !currentPasswordChange) {
+      setChangePasswordError('Por favor, preencha todos os campos.');
+      return;
+    }
+
+    if (newPasswordChange.length < 6) {
+      setChangePasswordError('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    if (newPasswordChange !== confirmNewPasswordChange) {
+      setChangePasswordError('As senhas digitadas não coincidem.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      if (user && user.uid.startsWith('demo_')) {
+        setChangePasswordSuccess('Sua senha de demonstração foi alterada com sucesso!');
+        setCurrentPasswordChange('');
+        setNewPasswordChange('');
+        setConfirmNewPasswordChange('');
+        triggerNotification("Senha Alterada (Demo) 🔐", "Sua senha de demonstração foi alterada localmente.");
+        setIsChangingPassword(false);
+        return;
+      }
+
+      if (auth.currentUser && auth.currentUser.email) {
+        const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPasswordChange);
+        await reauthenticateWithCredential(auth.currentUser, credential);
+        await updatePassword(auth.currentUser, newPasswordChange);
+        
+        setChangePasswordSuccess('Sua senha foi alterada com sucesso!');
+        setCurrentPasswordChange('');
+        setNewPasswordChange('');
+        setConfirmNewPasswordChange('');
+        triggerNotification("Senha Alterada! 🔐", "Sua senha do Firebase Auth foi alterada com sucesso.");
+      } else {
+        setChangePasswordError('Nenhum usuário logado ou sem e-mail.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/wrong-password') {
+        setChangePasswordError('A senha atual inserida está incorreta.');
+      } else {
+        setChangePasswordError(err.message || 'Erro ao alterar a senha.');
+      }
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // Delete Account and Data Handler
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDeleteAccountError(null);
+
+    if (!currentPasswordDelete) {
+      setDeleteAccountError('Por favor, informe a sua senha para confirmar.');
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    try {
+      if (user && user.uid.startsWith('demo_')) {
+        localStorage.removeItem(`copa_stickers_local_${user.uid}`);
+        localStorage.removeItem('copa_sticker_bypass_user');
+        setAllStickersRecords(prev => prev.filter(r => r.userId !== user.uid));
+        setUser(null);
+        triggerNotification("Conta Excluída! 🗑️", "Todos os seus dados de demonstração foram removidos.");
+        setIsDeletingAccount(false);
+        setShowDeleteConfirm(false);
+        return;
+      }
+
+      if (auth.currentUser && auth.currentUser.email) {
+        const uid = user.uid;
+        const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPasswordDelete);
+        await reauthenticateWithCredential(auth.currentUser, credential);
+
+        // Delete Firestore user document
+        await deleteDoc(doc(db, 'users', uid));
+
+        // Delete Firestore sticker documents
+        const q = query(collection(db, 'user_stickers'), where('userId', '==', uid));
+        const querySnapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        querySnapshot.forEach((docSnap) => {
+          batch.delete(docSnap.ref);
+        });
+        await batch.commit();
+
+        // Delete Firebase Auth User
+        await deleteUser(auth.currentUser);
+
+        setUser(null);
+        triggerNotification("Conta Excluída! 🗑️", "Sua conta e todos os dados foram apagados permanentemente.");
+      } else {
+        setDeleteAccountError('Nenhum usuário logado ou sem e-mail.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/wrong-password') {
+        setDeleteAccountError('A senha informada está incorreta.');
+      } else {
+        setDeleteAccountError(err.message || 'Erro ao excluir a conta.');
+      }
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   const handleFastAddRepeated = (e: React.FormEvent) => {
     e.preventDefault();
     setFastAddError(null);
@@ -2187,7 +2364,7 @@ export default function App() {
               <h1 className="font-extrabold text-base tracking-tight sm:text-lg flex items-center gap-1.5 text-slate-900">
                 Álbum Copa do Mundo 2026 
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 font-bold font-mono">
-                  TROCA BRASIL
+                  🤝 TROCA INTELIGENTE
                 </span>
               </h1>
               <p className="text-[10px] text-slate-500 font-semibold">Encontre aquela figurinha que você precisa</p>
@@ -2308,7 +2485,7 @@ export default function App() {
           </nav>
 
           {/* Album Statistics Card */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm">
+          <div className={`bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm ${activeTab === 'album' ? 'block' : 'hidden md:block'}`}>
             <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-3">Progresso do Álbum</h3>
             
             {/* ProgressBar */}
@@ -4276,20 +4453,20 @@ export default function App() {
                                 const partnerRepeatedToMe = singleMatchesList.filter(m => m.partnerUid === group.partnerUid && m.type === 'he_has_my_missing').map(m => m.stickerId);
                                 const myRepeatedToPartner = singleMatchesList.filter(m => m.partnerUid === group.partnerUid && m.type === 'i_have_his_missing').map(m => m.stickerId);
                                 return (
-                                  <div className="bg-gradient-to-r from-emerald-50 to-indigo-50/40 p-3 rounded-lg border border-indigo-100/60 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                                  <div className="bg-gradient-to-r from-emerald-50 to-indigo-50/40 p-3.5 rounded-lg border border-indigo-100/60 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
                                     <div className="space-y-0.5">
                                       <p className="font-extrabold text-slate-700">Proposta de Negociação Unificada</p>
                                       <p className="text-[10px] text-slate-500 font-medium">
                                         Você pode oferecer <span className="text-emerald-700 font-extrabold">{myRepeatedToPartner.length} repetida(s)</span> e quer <span className="text-indigo-700 font-extrabold">{partnerRepeatedToMe.length} faltante(s)</span> deste colecionador.
                                       </p>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                                       {group.partnerWhatsapp && (
                                         <a 
                                           href={buildGeneralMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="flex-1 md:flex-none py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[36px]"
+                                          className="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[38px] w-full sm:w-auto text-center"
                                           title="Enviar Proposta completa via WhatsApp"
                                         >
                                           <Phone className="w-3.5 h-3.5 text-white shrink-0" /> Chamar WhatsApp (Lista Completa)
@@ -4298,7 +4475,7 @@ export default function App() {
                                       <button
                                         type="button"
                                         onClick={() => handleShareGeneralTradeSummary(group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
-                                        className="flex-1 md:flex-none py-1.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-205 rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[36px]"
+                                        className="py-2 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[38px] w-full sm:w-auto"
                                         title="Copiar ou Compartilhar Proposta Completa"
                                       >
                                         <Share2 className="w-3.5 h-3.5 text-slate-500 shrink-0" /> Compartilhar Proposta
@@ -4425,20 +4602,20 @@ export default function App() {
                                 const partnerRepeatedToMe = singleMatchesList.filter(m => m.partnerUid === group.partnerUid && m.type === 'he_has_my_missing').map(m => m.stickerId);
                                 const myRepeatedToPartner = singleMatchesList.filter(m => m.partnerUid === group.partnerUid && m.type === 'i_have_his_missing').map(m => m.stickerId);
                                 return (
-                                  <div className="bg-gradient-to-r from-emerald-50 to-indigo-50/40 p-3 rounded-lg border border-indigo-100/60 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                                  <div className="bg-gradient-to-r from-emerald-50 to-indigo-50/40 p-3.5 rounded-lg border border-indigo-100/60 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
                                     <div className="space-y-0.5">
                                       <p className="font-extrabold text-slate-700">Proposta de Negociação Unificada</p>
                                       <p className="text-[10px] text-slate-500 font-medium">
                                         Você pode oferecer <span className="text-emerald-700 font-extrabold">{myRepeatedToPartner.length} repetida(s)</span> e quer <span className="text-indigo-700 font-extrabold">{partnerRepeatedToMe.length} faltante(s)</span> deste colecionador.
                                       </p>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                                       {group.partnerWhatsapp && (
                                         <a 
                                           href={buildGeneralMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="flex-1 md:flex-none py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[36px]"
+                                          className="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[38px] w-full sm:w-auto text-center"
                                           title="Enviar Proposta completa via WhatsApp"
                                         >
                                           <Phone className="w-3.5 h-3.5 text-white shrink-0" /> Chamar WhatsApp (Lista Completa)
@@ -4447,7 +4624,7 @@ export default function App() {
                                       <button
                                         type="button"
                                         onClick={() => handleShareGeneralTradeSummary(group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
-                                        className="flex-1 md:flex-none py-1.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-205 rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[36px]"
+                                        className="py-2 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[38px] w-full sm:w-auto"
                                         title="Copiar ou Compartilhar Proposta Completa"
                                       >
                                         <Share2 className="w-3.5 h-3.5 text-slate-500 shrink-0" /> Compartilhar Proposta
@@ -4616,6 +4793,224 @@ export default function App() {
                   </div>
 
                 </form>
+
+                {/* --- SEÇÃO DE HISTÓRICO DE TROCAS --- */}
+                <hr className="border-slate-100 my-6" />
+
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                      <History className="w-4 h-4 text-indigo-600" />
+                      Histórico de Trocas
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Trocas confirmadas e aplicadas ao seu álbum.</p>
+                  </div>
+
+                  {tradeHistory.length === 0 ? (
+                    <div className="p-5 border border-dashed border-slate-200 rounded-xl text-center bg-slate-50/30">
+                      <History className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-slate-500">Nenhuma troca confirmada ainda</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 font-medium">As trocas que você aplicar através das propostas unificadas aparecerão aqui.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                      {tradeHistory.map((trade: any) => (
+                        <div key={trade.id} className="p-3 bg-white border border-slate-200/80 rounded-xl hover:border-indigo-100/80 transition-all shadow-sm space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-extrabold text-slate-700">
+                              Parceiro: <span className="text-indigo-600">{trade.partnerName}</span>
+                            </span>
+                            <span className="text-[9px] font-mono font-medium text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                              {new Date(trade.date).toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-[10px] bg-slate-50/50 p-2 rounded-lg border border-slate-100">
+                            <div>
+                              <p className="font-bold text-red-600 mb-1 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Você deu ({trade.stickersGiven?.length || 0}):
+                              </p>
+                              {trade.stickersGiven && trade.stickersGiven.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {trade.stickersGiven.map((sid: string) => (
+                                    <span key={sid} className="px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-100 rounded font-bold text-[9px]">
+                                      {sid}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic">Nenhuma</span>
+                              )}
+                            </div>
+
+                            <div>
+                              <p className="font-bold text-emerald-600 mb-1 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Você recebeu ({trade.stickersReceived?.length || 0}):
+                              </p>
+                              {trade.stickersReceived && trade.stickersReceived.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {trade.stickersReceived.map((sid: string) => (
+                                    <span key={sid} className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded font-bold text-[9px]">
+                                      {sid}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic">Nenhuma</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* --- SEÇÃO DE SEGURANÇA E DADOS (MUDANÇA DE SENHA & EXCLUSÃO) --- */}
+                <hr className="border-slate-100 my-6" />
+
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      Segurança e Conta
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Gerencie sua senha de acesso e a exclusão definitiva de seus dados.</p>
+                  </div>
+
+                  {/* FORM 1: ALTERAR SENHA */}
+                  <form onSubmit={handleChangePassword} className="space-y-3.5 bg-slate-50/50 p-4 border border-slate-200/60 rounded-xl">
+                    <p className="text-xs font-bold text-slate-700">Alterar Senha de Acesso</p>
+                    
+                    {changePasswordError && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-[11px] text-red-800 font-medium">
+                        {changePasswordError}
+                      </div>
+                    )}
+                    {changePasswordSuccess && (
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-[11px] text-emerald-800 font-semibold">
+                        {changePasswordSuccess}
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1 font-mono uppercase tracking-wider">Senha Atual</label>
+                        <input 
+                          type="password" 
+                          placeholder="Sua senha atual"
+                          value={currentPasswordChange}
+                          onChange={(e) => setCurrentPasswordChange(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-white border border-slate-250 rounded-lg focus:border-emerald-500 focus:outline-none text-xs text-slate-800 font-semibold"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1 font-mono uppercase tracking-wider">Nova Senha</label>
+                          <input 
+                            type="password" 
+                            placeholder="Mínimo 6 caracteres"
+                            value={newPasswordChange}
+                            onChange={(e) => setNewPasswordChange(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-white border border-slate-250 rounded-lg focus:border-emerald-500 focus:outline-none text-xs text-slate-800 font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1 font-mono uppercase tracking-wider">Confirmar Nova Senha</label>
+                          <input 
+                            type="password" 
+                            placeholder="Repita a nova senha"
+                            value={confirmNewPasswordChange}
+                            onChange={(e) => setConfirmNewPasswordChange(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-white border border-slate-250 rounded-lg focus:border-emerald-500 focus:outline-none text-xs text-slate-800 font-semibold"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isChangingPassword}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-lg transition disabled:opacity-55 cursor-pointer"
+                    >
+                      {isChangingPassword ? 'Alterando...' : 'Atualizar Senha'}
+                    </button>
+                  </form>
+
+                  {/* FORM 2: EXCLUSÃO DE CONTA */}
+                  <div className="bg-red-50/40 p-4 rounded-xl border border-red-100 space-y-3.5">
+                    <p className="text-xs font-bold text-red-800 flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                      Zona de Perigo: Exclusão de Conta
+                    </p>
+                    
+                    <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                      Ao excluir sua conta, **todas as suas figurinhas salvas, matches e informações de perfil serão removidos permanentemente**. Esta ação é irreversível.
+                    </p>
+
+                    {deleteAccountError && (
+                      <div className="p-3 bg-red-100 border border-red-200 rounded-lg text-[11px] text-red-800 font-semibold">
+                        {deleteAccountError}
+                      </div>
+                    )}
+
+                    {!showDeleteConfirm ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Excluir Conta e Dados
+                      </button>
+                    ) : (
+                      <form onSubmit={handleDeleteAccount} className="space-y-3 border-t border-red-100/60 pt-3 animate-fade-in">
+                        <div className="bg-white p-3 rounded-lg border border-red-200 text-[11px] text-red-700 font-medium">
+                          ⚠ Para confirmar que você realmente deseja excluir sua conta e limpar seus dados, por favor insira sua senha abaixo.
+                        </div>
+                        
+                        <div>
+                          <label className="block text-[10px] font-bold text-red-700 mb-1 font-mono uppercase tracking-wider">Sua Senha de Confirmação</label>
+                          <input 
+                            type="password" 
+                            placeholder="Digite sua senha para confirmar"
+                            value={currentPasswordDelete}
+                            onChange={(e) => setCurrentPasswordDelete(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-white border border-red-200 rounded-lg focus:border-red-500 focus:outline-none text-xs text-slate-800 font-semibold"
+                            required
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="submit"
+                            disabled={isDeletingAccount}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition disabled:opacity-55 cursor-pointer flex items-center gap-1.5"
+                          >
+                            {isDeletingAccount ? 'Excluindo...' : 'Sim, Excluir Todos os Meus Dados'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowDeleteConfirm(false);
+                              setCurrentPasswordDelete('');
+                              setDeleteAccountError(null);
+                            }}
+                            className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                </div>
 
               </div>
 
