@@ -32,6 +32,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import Auth from './components/Auth';
 import ChatWindow from './components/ChatWindow';
+import StatsDashboard from './components/StatsDashboard';
 
 import { 
   BookOpen, 
@@ -67,7 +68,14 @@ import {
   ShieldCheck,
   LayoutGrid,
   List,
-  History
+  History,
+  Trophy,
+  Globe,
+  Lock,
+  Unlock,
+  Box,
+  CreditCard,
+  Medal
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
@@ -290,6 +298,7 @@ export default function App() {
   const [selectedGroup, setSelectedGroup] = useState<string>('TODOS');
   const [selectedTeam, setSelectedTeam] = useState<string>('TODOS');
   const [statusFilter, setStatusFilter] = useState<'TODOS' | 'missing' | 'repeated' | 'owned'>('TODOS');
+  const [albumSortOrder, setAlbumSortOrder] = useState<'default' | 'alphabetical'>('default');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     const cached = localStorage.getItem('copa_view_mode');
     return (cached === 'list' || cached === 'grid') ? cached : 'grid';
@@ -444,6 +453,7 @@ export default function App() {
   const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null);
   const [copiedExport, setCopiedExport] = useState(false);
   const [exportType, setExportType] = useState<'repeated' | 'missing'>('repeated');
+  const [statsSubTab, setStatsSubTab] = useState<'meu_album' | 'comunidade'>('meu_album');
   const [isImporting, setIsImporting] = useState(false);
   const prevDoubleMatchUidsRef = useRef<string[] | null>(null);
 
@@ -2464,7 +2474,7 @@ export default function App() {
               }`}
             >
               <BarChart3 className="w-4 h-4 shrink-0" />
-              Estatísticas da Copa
+              Estatísticas Curiosas
             </button>
 
             {isAdminUser && (
@@ -3478,6 +3488,25 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Organização das Seleções */}
+                <div id="album_organization_card" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-200">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-800">Organização das Seleções</span>
+                    <span className="text-[10px] text-slate-500 font-semibold">Escolha como as seleções serão listadas no álbum.</span>
+                  </div>
+                  <div className="w-full sm:w-64">
+                    <select
+                      id="album_organization_selector"
+                      value={albumSortOrder}
+                      onChange={(e) => setAlbumSortOrder(e.target.value as 'default' | 'alphabetical')}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none text-xs text-slate-700 transition font-bold cursor-pointer shadow-xs"
+                    >
+                      <option value="default">📖 Ordem Original do Álbum</option>
+                      <option value="alphabetical">🔤 Seleções por Ordem Alfabética</option>
+                    </select>
+                  </div>
+                </div>
+
                 {/* Unified Bulk Marking Tool Belt (Painel de Marcação em Massa) */}
                 <div id="bulk-markings-panel" className="bg-gradient-to-r from-slate-50 to-slate-100/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
                   <div className="flex items-center justify-between border-b border-slate-200/50 pb-2">
@@ -3656,6 +3685,10 @@ export default function App() {
                       const nameMatches = cat.name.toLowerCase().includes(q) || cat.code.toLowerCase().includes(q);
                       return nameMatches || hasMatchingStickers;
                     });
+                  }
+
+                  if (albumSortOrder === 'alphabetical') {
+                    visibleCategories = [...visibleCategories].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
                   }
 
                   if (visibleCategories.length === 0) {
@@ -5018,644 +5051,14 @@ export default function App() {
           )}
 
           {/* TAB: CURIOSITIES AND STATISTICS */}
-          {activeTab === 'stats' && (() => {
-            // 1. Encontrar colecionadores engajados
-            const uniqueUsers = Array.from(new Set(allStickersRecords.map(r => r.userId)));
-            const activeCollectorsCount = uniqueUsers.length || 1;
-
-            // 2. Mapeamento das figurinhas da comunidade
-            const communityStats: Record<string, { missingCount: number, ownedCount: number, repeatedQty: number }> = {};
-
-            // Inicializar todos com 0
-            STICKERS.forEach(s => {
-              communityStats[s.id] = { missingCount: 0, ownedCount: 0, repeatedQty: 0 };
-            });
-
-            allStickersRecords.forEach(rec => {
-              if (!communityStats[rec.stickerId]) {
-                communityStats[rec.stickerId] = { missingCount: 0, ownedCount: 0, repeatedQty: 0 };
-              }
-              if (rec.status === 'missing') {
-                communityStats[rec.stickerId].missingCount += 1;
-              } else if (rec.status === 'owned') {
-                communityStats[rec.stickerId].ownedCount += 1;
-              } else if (rec.status === 'repeated') {
-                communityStats[rec.stickerId].ownedCount += 1;
-                communityStats[rec.stickerId].repeatedQty += (rec.quantity || 1);
-              }
-            });
-
-            // 3. Obter as figurinhas Mais Procuradas (Mais Faltantes)
-            const topMissingStickers = [...STICKERS]
-              .map(s => {
-                const stats = communityStats[s.id] || { missingCount: 0, ownedCount: 0, repeatedQty: 0 };
-                return {
-                  sticker: s,
-                  team: TEAMS.find(t => t.code === s.teamCode),
-                  missingCount: stats.missingCount,
-                  repeatedQty: stats.repeatedQty,
-                  ownedCount: stats.ownedCount
-                };
-              })
-              .sort((a, b) => {
-                if (b.missingCount !== a.missingCount) {
-                  return b.missingCount - a.missingCount;
-                }
-                return a.repeatedQty - b.repeatedQty;
-              })
-              .slice(0, 5);
-
-            // 4. Obter as figurinhas Mais Abundantes (Mais Repetidas)
-            const topRepeatedStickers = [...STICKERS]
-              .map(s => {
-                const stats = communityStats[s.id] || { missingCount: 0, ownedCount: 0, repeatedQty: 0 };
-                return {
-                  sticker: s,
-                  team: TEAMS.find(t => t.code === s.teamCode),
-                  missingCount: stats.missingCount,
-                  repeatedQty: stats.repeatedQty,
-                  ownedCount: stats.ownedCount
-                };
-              })
-              .sort((a, b) => b.repeatedQty - a.repeatedQty)
-              .slice(0, 5);
-
-            // 5. Insights Pessoais do Usuário Ativo
-            const myOwnedOrRepeated = STICKERS.filter(s => {
-              const state = myStickers[s.id];
-              return state && (state.status === 'owned' || state.status === 'repeated');
-            });
-
-            let crownJewel: any = null;
-            if (myOwnedOrRepeated.length > 0) {
-              const crownJewelsSorted = myOwnedOrRepeated
-                .map(s => {
-                  const stats = communityStats[s.id] || { missingCount: 0, ownedCount: 0, repeatedQty: 0 };
-                  const myState = myStickers[s.id];
-                  const otherOwnersCount = Math.max(0, stats.ownedCount - 1);
-                  return {
-                    sticker: s,
-                    team: TEAMS.find(t => t.code === s.teamCode),
-                    otherOwnersCount,
-                    isRepeated: myState?.status === 'repeated',
-                    myQuantity: myState?.status === 'repeated' ? (myState.quantity || 1) : 1
-                  };
-                })
-                .sort((a, b) => {
-                  // We want the lease owned by others (rarest)
-                  if (a.otherOwnersCount !== b.otherOwnersCount) {
-                    return a.otherOwnersCount - b.otherOwnersCount;
-                  }
-                  // Break ties with special sticker
-                  if (b.sticker.isSpecial !== a.sticker.isSpecial) {
-                    return b.sticker.isSpecial ? 1 : -1;
-                  }
-                  return a.sticker.id.localeCompare(b.sticker.id);
-                });
-              
-              crownJewel = crownJewelsSorted[0];
-            }
-
-            const myMissing = STICKERS.filter(s => {
-              const state = myStickers[s.id];
-              return !state || state.status === 'missing';
-            });
-
-            let supremeChallenge: any = null;
-            if (myMissing.length > 0) {
-              const supremeChallengesSorted = myMissing
-                .map(s => {
-                  const stats = communityStats[s.id] || { missingCount: 0, ownedCount: 0, repeatedQty: 0 };
-                  return {
-                    sticker: s,
-                    team: TEAMS.find(t => t.code === s.teamCode),
-                    repeatedQty: stats.repeatedQty,
-                    otherOwnersCount: stats.ownedCount
-                  };
-                })
-                .sort((a, b) => {
-                  // Prioritize lowest amount of duplicate trade offers in community
-                  if (a.repeatedQty !== b.repeatedQty) {
-                    return a.repeatedQty - b.repeatedQty;
-                  }
-                  // Break ties by lowest total owners in general (most scarce)
-                  return a.otherOwnersCount - b.otherOwnersCount;
-                });
-              
-              supremeChallenge = supremeChallengesSorted[0];
-            }
-
-            // Seleções mais concluídas e menos concluídas (excluindo seleções especiais ou não)
-            const teamCompletionList = TEAMS.map(team => {
-              const teamStickers = STICKERS.filter(s => s.teamCode === team.code);
-              const totalInTeam = teamStickers.length;
-
-              const ownedInTeam = teamStickers.filter(s => {
-                const sState = myStickers[s.id];
-                return sState && (sState.status === 'owned' || sState.status === 'repeated');
-              }).length;
-
-              return {
-                team,
-                ownedCount: ownedInTeam,
-                total: totalInTeam,
-                pct: totalInTeam > 0 ? Math.round((ownedInTeam / totalInTeam) * 100) : 0
-              };
-            });
-
-            const sortedTeamsByCompletion = [...teamCompletionList]
-              .filter(item => item.team.code !== 'COCA' && item.team.code !== 'FIFA') // foco nas seleções reais
-              .sort((a, b) => b.pct - a.pct);
-            const mostCompleteTeam = sortedTeamsByCompletion[0];
-
-            const sortedTeamsByUserMissing = [...teamCompletionList]
-              .filter(item => item.team.code !== 'COCA' && item.team.code !== 'FIFA')
-              .sort((a, b) => a.pct - b.pct);
-            const leastCompleteTeam = sortedTeamsByUserMissing[0];
-
-            // 6. Grupo mais forte e mais fraco pessoalmente
-            const groupStats = Array.from(new Set(TEAMS.map(t => t.group))).map(groupName => {
-              const groupTeams = TEAMS.filter(t => t.group === groupName);
-              const groupStickers = STICKERS.filter(s => groupTeams.some(gt => gt.code === s.teamCode));
-              const totalInGroup = groupStickers.length;
-
-              const ownedInGroup = groupStickers.filter(s => {
-                const sState = myStickers[s.id];
-                return sState && (sState.status === 'owned' || sState.status === 'repeated');
-              }).length;
-
-              return {
-                groupName,
-                ownedCount: ownedInGroup,
-                totalCount: totalInGroup,
-                pct: totalInGroup > 0 ? Math.round((ownedInGroup / totalInGroup) * 100) : 0
-              };
-            });
-
-            const sortedGroups = [...groupStats].sort((a, b) => b.pct - a.pct);
-            const strongestGroup = sortedGroups[0];
-            const weakestGroup = sortedGroups[sortedGroups.length - 1];
-
-            // Estatísticas de Faltantes vs Repetidas globais
-            const globalTotalRepeated = allStickersRecords
-              .filter(r => r.status === 'repeated')
-              .reduce((acc, curr) => acc + (curr.quantity || 1), 0);
-
-            const globalTotalMissing = allStickersRecords
-              .filter(r => r.status === 'missing')
-              .length;
-
-            const globalTotalOwned = allStickersRecords
-              .filter(r => r.status === 'owned')
-              .length;
-
-            return (
-              <div className="flex flex-col gap-8 animate-fade-in">
-                
-                {/* Header da Aba */}
-                <div id="stats_header" className="bg-white border border-slate-200/80 rounded-2xl p-5 md:p-6 shadow-xs relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-150 shrink-0">
-                        <BarChart3 className="w-6 h-6 text-emerald-600" />
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-1.5">
-                          Estatísticas Curiosas & Insights 📊
-                        </h2>
-                        <p className="text-xs text-slate-505 mt-0.5 font-medium leading-none">
-                          Insights em tempo real baseados em todos os colecionadores e no seu álbum.
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-850 rounded-xl border border-emerald-100 text-[11px] font-mono font-bold uppercase self-start sm:self-auto shadow-xs">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      {activeCollectorsCount} Colecionadores Ativos
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bento Grid: Métricas Gerais */}
-                <div id="stats_bento" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  
-                  {/* Card 1: Figurinhas Faltantes na Comunidade */}
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cobiçadas (Desejos)</span>
-                        <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center border border-orange-100 text-orange-600">
-                          <Flame className="w-4 h-4" />
-                        </div>
-                      </div>
-                      <div className="text-2xl font-black text-slate-800 tracking-tight">{globalTotalMissing}</div>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-3 font-medium leading-normal">
-                      Marcadas como <strong className="text-orange-600 font-extrabold">faltantes</strong> por usuários na plataforma.
-                    </p>
-                  </div>
-
-                  {/* Card 2: Figurinhas Repetidas para Troca */}
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Disponíveis p/ Troca</span>
-                        <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center border border-emerald-100 text-emerald-600">
-                          <Layers className="w-4 h-4" />
-                        </div>
-                      </div>
-                      <div className="text-2xl font-black text-slate-800 tracking-tight">{globalTotalRepeated}</div>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-3 font-medium leading-normal">
-                      Cópias físicas <strong className="text-emerald-600 font-extrabold">repetidas</strong> de colecionadores ativos.
-                    </p>
-                  </div>
-
-                  {/* Card 3: Figurinhas Coladas no Geral */}
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Coladas/Validadas</span>
-                        <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-100 text-blue-600">
-                          <Check className="w-4 h-4" />
-                        </div>
-                      </div>
-                      <div className="text-2xl font-black text-slate-800 tracking-tight">{globalTotalOwned}</div>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-3 font-medium leading-normal">
-                      Figurinhas únicas e <strong className="text-blue-600 font-extrabold">coladas</strong> nos álbuns dos usuários.
-                    </p>
-                  </div>
-
-                  {/* Card 4: Média de Figurinhas */}
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Média por Álbum</span>
-                        <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center border border-amber-100 text-amber-600">
-                          <TrendingUp className="w-4 h-4" />
-                        </div>
-                      </div>
-                      <div className="text-2xl font-black text-slate-800 tracking-tight">
-                        {Math.round((globalTotalOwned + globalTotalRepeated) / activeCollectorsCount)} un
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-3 font-medium leading-normal">
-                      Média acumulada de figurinhas físicas por colecionador ativo.
-                    </p>
-                  </div>
-
-                </div>
-
-                {/* Seção de Insights Pessoais vs Comunidade */}
-                <div id="stats_insights" className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  {/* Insight 1: Joia da Coroa */}
-                  <div className="bg-slate-900 text-slate-100 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between border border-amber-500/10 shadow-lg min-h-[170px]">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl -mr-6 -mt-6 pointer-events-none"></div>
-                    <div>
-                      <div className="flex items-center gap-2 text-amber-400 mb-4">
-                        <Award className="w-5 h-5 text-amber-500 shrink-0" />
-                        <span className="text-xs font-mono font-bold uppercase tracking-widest">Sua Joia da Coroa</span>
-                      </div>
-                      
-                      {crownJewel ? (
-                        <div>
-                          <div className="flex items-baseline gap-2.5">
-                            <span className="text-3xl text-amber-300 font-black tracking-tight">{crownJewel.sticker.id}</span>
-                            <span className="text-xs text-stone-400 font-semibold font-sans">
-                              {crownJewel.team?.flagUrl} {crownJewel.team?.name}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-300 mt-3.5 leading-relaxed font-medium">
-                            Esta é a figurinha que você possui ({crownJewel.isRepeated ? <strong className="text-emerald-400 font-extrabold">{crownJewel.myQuantity} repetida(s)</strong> : <strong className="text-stone-300 font-bold">colada</strong>}) que é a mais <strong className="text-amber-400">rara e escassa</strong> do ecossistema: apenas <strong className="text-amber-300 font-black">{crownJewel.otherOwnersCount} outro(s) colecionador(es)</strong> na plataforma inteira a possuem cadastrada! Um verdadeiro privilégio no seu álbum.
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-400 leading-relaxed font-semibold mt-1">
-                          Você ainda não marcou nenhuma figurinha em seu álbum. Comece a cadastrar para descobrir qual dos seus itens é o mais cobiçado pelos outros usuários!
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Insight 2: Desafio Supremo */}
-                  <div className="bg-slate-900 text-slate-100 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between border border-indigo-550/10 shadow-lg min-h-[170px]">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl -mr-6 -mt-6 pointer-events-none"></div>
-                    <div>
-                      <div className="flex items-center gap-2 text-indigo-400 mb-4">
-                        <Lightbulb className="w-5 h-5 text-indigo-500 shrink-0" />
-                        <span className="text-xs font-mono font-bold uppercase tracking-widest">Seu Desafio Supremo</span>
-                      </div>
-                      
-                      {supremeChallenge ? (
-                        <div>
-                          <div className="flex items-baseline gap-2.5">
-                            <span className="text-3xl text-indigo-300 font-black tracking-tight">{supremeChallenge.sticker.id}</span>
-                            <span className="text-xs text-slate-400 font-semibold font-sans">
-                              {supremeChallenge.team?.flagUrl} {supremeChallenge.team?.name}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-300 mt-3.5 leading-relaxed font-medium">
-                            Das figurinhas <strong className="text-indigo-400">faltantes</strong> no seu álbum, esta é a mais difícil de obter de outros colecionadores: existem <strong className="text-pink-400 font-black">{supremeChallenge.repeatedQty} cópias repetidas</strong> disponíveis para troca na plataforma.{supremeChallenge.repeatedQty === 0 && " Ela é um mito absoluto no sistema!"}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-400 leading-relaxed font-semibold mt-1">
-                          Parabéns! Você já possui todas as figurinhas do álbum ou não possui faltas registradas. Seu álbum está completo e brilhante!
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Estatísticas de Equipes: Mais Fortes e Mais Fracas */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  {/* Seleções em Destaque */}
-                  <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-4">
-                    <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-3">
-                      <TrendingUp className="w-4 h-4 text-emerald-600" /> Histórico de Seleções (Seu Álbum)
-                    </h3>
-                    
-                    <div className="space-y-4 py-1">
-                      
-                      {/* Seleção Mais Completa */}
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <span className="text-[10px] font-mono text-slate-450 uppercase tracking-wider block mb-1 font-bold">Mais Avançada</span>
-                          {mostCompleteTeam ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xl shrink-0">{mostCompleteTeam.team.flagUrl}</span>
-                              <div>
-                                <span className="text-xs font-bold text-slate-800 block leading-tight">{mostCompleteTeam.team.name}</span>
-                                <span className="text-[10px] text-slate-500 font-semibold">{mostCompleteTeam.ownedCount} de {mostCompleteTeam.total} coladas</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-xs font-semibold text-slate-500 block">Nenhuma seleção cadastrada</span>
-                          )}
-                        </div>
-                        
-                        {mostCompleteTeam && (
-                          <div className="text-right shrink-0">
-                            <span className="text-lg font-black text-emerald-600 block">{mostCompleteTeam.pct}%</span>
-                            <span className="text-[9px] text-slate-400 font-mono font-bold">CONCLUÍDO</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Divisor */}
-                      <div className="border-t border-slate-100"></div>
-
-                      {/* Seleção Menos Completa */}
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <span className="text-[10px] font-mono text-slate-450 uppercase tracking-wider block mb-1 font-bold">Mais Faltas</span>
-                          {leastCompleteTeam ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xl shrink-0">{leastCompleteTeam.team.flagUrl}</span>
-                              <div>
-                                <span className="text-xs font-bold text-slate-800 block leading-tight">{leastCompleteTeam.team.name}</span>
-                                <span className="text-[10px] text-slate-505 font-semibold">{leastCompleteTeam.total - leastCompleteTeam.ownedCount} figurinhas restantes</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-xs font-semibold text-slate-500 block">Nenhuma seleção cadastrada</span>
-                          )}
-                        </div>
-                        
-                        {leastCompleteTeam && (
-                          <div className="text-right shrink-0">
-                            <span className="text-lg font-black text-rose-500 block">{leastCompleteTeam.pct}%</span>
-                            <span className="text-[9px] text-slate-400 font-mono font-bold">CONCLUÍDO</span>
-                          </div>
-                        )}
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* Força dos Grupos */}
-                  <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-4">
-                    <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-3">
-                      <HelpCircle className="w-4 h-4 text-emerald-600" /> Seus Grupos mais Fortes & Fracos
-                    </h3>
-                    
-                    <div className="space-y-4 py-1">
-                      
-                      {/* Grupo Forte */}
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <span className="text-[10px] font-mono text-slate-450 uppercase tracking-wider block mb-1 font-bold">Grupo Líder</span>
-                          {strongestGroup ? (
-                            <div>
-                              <span className="text-xs font-extrabold text-slate-800 block mb-0.5">{strongestGroup.groupName}</span>
-                              <span className="text-[10px] text-slate-500 font-semibold">{strongestGroup.ownedCount} de {strongestGroup.totalCount} figurinhas coladas</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs font-semibold text-slate-500 block">Nenhum</span>
-                          )}
-                        </div>
-                        {strongestGroup && (
-                          <div className="text-right shrink-0">
-                            <span className="text-lg font-black text-emerald-600 block">{strongestGroup.pct}%</span>
-                            <span className="text-[9px] text-slate-400 font-mono font-bold">COMPLETO</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Divisor */}
-                      <div className="border-t border-slate-100"></div>
-
-                      {/* Grupo Fraco */}
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <span className="text-[10px] font-mono text-slate-450 uppercase tracking-wider block mb-1 font-bold">Grupo Lanterna</span>
-                          {weakestGroup ? (
-                            <div>
-                              <span className="text-xs font-extrabold text-slate-800 block mb-0.5">{weakestGroup.groupName}</span>
-                              <span className="text-[10px] text-slate-505 font-semibold">{weakestGroup.totalCount - weakestGroup.ownedCount} faltando</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs font-semibold text-slate-500 block">Nenhum</span>
-                          )}
-                        </div>
-                        {weakestGroup && (
-                          <div className="text-right shrink-0">
-                            <span className="text-lg font-black text-amber-500 block">{weakestGroup.pct}%</span>
-                            <span className="text-[9px] text-slate-400 font-mono font-bold">COMPLETO</span>
-                          </div>
-                        )}
-                      </div>
-
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Ranking Real-Time da Comunidade: Mais Desejados e Mais Abundantes */}
-                <div id="stats_rankings" className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-2">
-                  
-                  {/* Top 5 Mais Procurados (Faltantes) */}
-                  <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-4">
-                    <div>
-                      <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-                        <Flame className="w-4 h-4 text-orange-500 shrink-0 animate-pulse" />
-                        Top 5 Figurinhas Mais Cobiçadas da Comunidade
-                      </h3>
-                      <p className="text-[11px] text-slate-450 font-semibold leading-tight mt-1">
-                        As figurinhas que os colecionadores mais precisam e que têm pouca oferta de troca circulando.
-                      </p>
-                    </div>
-
-                    <div className="divide-y divide-slate-100 mt-2">
-                      {topMissingStickers.map((item, idx) => {
-                        const state = myStickers[item.sticker.id];
-                        const isMyMissing = !state || state.status === 'missing';
-                        const isMyRepeated = state?.status === 'repeated';
-                        const isMyOwned = state?.status === 'owned';
-
-                        return (
-                          <div key={item.sticker.id} className="flex items-center justify-between py-3 gap-3">
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-black text-slate-400 font-mono w-4">#{idx + 1}</span>
-                              <div className={`p-1 w-11 h-11 rounded-lg flex flex-col items-center justify-center font-bold font-mono text-xs border shrink-0 transition-shadow ${
-                                item.sticker.isSpecial 
-                                  ? 'bg-gradient-to-br from-amber-50 to-amber-100/60 border-amber-300 text-amber-950 shadow-xs' 
-                                  : 'bg-slate-50 border-slate-200 text-slate-700'
-                              }`}>
-                                <span className="text-[9px] font-black tracking-tighter opacity-80 uppercase leading-none">{item.sticker.teamCode}</span>
-                                <span className={item.sticker.isSpecial ? "text-[11px] text-amber-700 font-extrabold" : "text-[11px]"}>{item.sticker.number}</span>
-                              </div>
-                              <div>
-                                <span className="text-xs font-bold text-slate-800 flex items-center gap-1 leading-none mb-1">
-                                  {item.sticker.isSpecial && <Sparkles className="w-3 h-3 text-amber-500" />} {item.sticker.id}
-                                </span>
-                                <span className="text-[10px] text-slate-500 font-semibold block leading-none">
-                                  {item.team?.flagUrl} {item.team?.name}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-5">
-                              {/* Status do usuário logado */}
-                              <div className="text-right hidden sm:block">
-                                {isMyRepeated && (
-                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-emerald-200 bg-emerald-50 text-emerald-800">
-                                    Tenho Repetida ({state.quantity || 1})
-                                  </span>
-                                )}
-                                {isMyOwned && (
-                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-blue-200 bg-blue-50 text-blue-800">
-                                    Colada
-                                  </span>
-                                )}
-                                {isMyMissing && (
-                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-slate-200 bg-slate-50 text-slate-500">
-                                    Preciso dela
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="text-right shrink-0">
-                                <span className="text-xs font-bold text-slate-700 block font-mono leading-none">
-                                  {item.missingCount} pedidos
-                                </span>
-                                <span className="text-[9px] text-slate-400 font-mono block leading-none mt-1">
-                                  {item.repeatedQty} de sobra
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Top 5 Mais Abundantes (Repetidas) */}
-                  <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-4">
-                    <div>
-                      <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-                        <Layers className="w-4 h-4 text-emerald-500 shrink-0" />
-                        Top 5 Figurinhas Mais Sobrando para Troca
-                      </h3>
-                      <p className="text-[11px] text-slate-450 font-semibold leading-tight mt-1">
-                        As figurinhas que mais têm cópias repetidas disponíveis entre os usuários conectados.
-                      </p>
-                    </div>
-
-                    <div className="divide-y divide-slate-100 mt-2">
-                      {topRepeatedStickers.map((item, idx) => {
-                        const state = myStickers[item.sticker.id];
-                        const isMyMissing = !state || state.status === 'missing';
-                        const isMyRepeated = state?.status === 'repeated';
-                        const isMyOwned = state?.status === 'owned';
-
-                        return (
-                          <div key={item.sticker.id} className="flex items-center justify-between py-3 gap-3">
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-black text-slate-400 font-mono w-4">#{idx + 1}</span>
-                              <div className={`p-1 w-11 h-11 rounded-lg flex flex-col items-center justify-center font-bold font-mono text-xs border shrink-0 transition-shadow ${
-                                item.sticker.isSpecial 
-                                  ? 'bg-gradient-to-br from-amber-50 to-amber-100/60 border-amber-300 text-amber-950 shadow-xs' 
-                                  : 'bg-slate-50 border-slate-200 text-slate-700'
-                              }`}>
-                                <span className="text-[9px] font-black tracking-tighter opacity-80 uppercase leading-none">{item.sticker.teamCode}</span>
-                                <span className={item.sticker.isSpecial ? "text-[11px] text-amber-700 font-extrabold" : "text-[11px]"}>{item.sticker.number}</span>
-                              </div>
-                              <div>
-                                <span className="text-xs font-bold text-slate-800 flex items-center gap-1 leading-none mb-1 border-b border-transparent">
-                                  {item.sticker.isSpecial && <Sparkles className="w-3 h-3 text-amber-500" />} {item.sticker.id}
-                                </span>
-                                <span className="text-[10px] text-slate-505 font-semibold block leading-none">
-                                  {item.team?.flagUrl} {item.team?.name}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-5">
-                              {/* Status do usuário logado */}
-                              <div className="text-right hidden sm:block">
-                                {isMyRepeated && (
-                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-emerald-200 bg-emerald-50 text-emerald-800">
-                                    Tenho Repetida ({state.quantity || 1})
-                                  </span>
-                                )}
-                                {isMyOwned && (
-                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-blue-200 bg-blue-50 text-blue-800">
-                                    Colada
-                                  </span>
-                                )}
-                                {isMyMissing && (
-                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-slate-200 bg-slate-50 text-slate-500">
-                                    Preciso dela
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="text-right shrink-0">
-                                <span className="text-xs font-black text-emerald-600 block font-mono leading-none">
-                                  {item.repeatedQty} de sobra
-                                </span>
-                                <span className="text-[9px] text-slate-400 font-mono block leading-none mt-1">
-                                  {item.missingCount} querem
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                </div>
-
-              </div>
-            );
-          })()}
+          {activeTab === 'stats' && (
+            <StatsDashboard
+              myStickers={myStickers}
+              allStickersRecords={allStickersRecords}
+              allUsers={allUsers}
+              user={user}
+            />
+          )}
 
           {/* TAB 5: ADMIN / SIMULATION DASHBOARD */}
           {activeTab === 'admin' && isAdminUser && (
