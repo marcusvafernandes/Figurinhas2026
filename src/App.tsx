@@ -33,6 +33,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Auth from './components/Auth';
 import ChatWindow from './components/ChatWindow';
 import StatsDashboard from './components/StatsDashboard';
+import CompareTool from './components/CompareTool';
 
 import { 
   BookOpen, 
@@ -75,7 +76,8 @@ import {
   Unlock,
   Box,
   CreditCard,
-  Medal
+  Medal,
+  ArrowRightLeft
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
@@ -245,7 +247,7 @@ export default function App() {
   const [chats, setChats] = useState<Chat[]>([]);
   
   // App views
-  const [activeTab, setActiveTab] = useState<'album' | 'matches' | 'profile' | 'admin'>('album');
+  const [activeTab, setActiveTab] = useState<'album' | 'matches' | 'profile' | 'admin' | 'stats' | 'compare'>('album');
   const [albumSubTab, setAlbumSubTab] = useState<'selection' | 'repeated'>('selection');
 
   // Inline auth states for visitor panel
@@ -2475,6 +2477,20 @@ export default function App() {
             >
               <BarChart3 className="w-4 h-4 shrink-0" />
               Estatísticas Curiosas
+            </button>
+
+            <button
+              type="button"
+              id="tab_compare"
+              onClick={() => setActiveTab('compare')}
+              className={`flex-1 md:flex-initial flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                activeTab === 'compare' 
+                  ? 'bg-emerald-600 text-white shadow-sm' 
+                  : 'text-slate-600 hover:text-emerald-950 hover:bg-emerald-50/70'
+              }`}
+            >
+              <ArrowRightLeft className="w-4 h-4 shrink-0" />
+              Conferir Listas (Match)
             </button>
 
             {isAdminUser && (
@@ -5057,6 +5073,13 @@ export default function App() {
               allStickersRecords={allStickersRecords}
               allUsers={allUsers}
               user={user}
+            />
+          )}
+
+          {/* TAB: COMPARE TOOL (CONFERIR LISTAS) */}
+          {activeTab === 'compare' && (
+            <CompareTool
+              myStickers={myStickers}
             />
           )}
 
