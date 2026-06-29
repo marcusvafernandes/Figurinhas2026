@@ -249,6 +249,7 @@ export default function App() {
   // App views
   const [activeTab, setActiveTab] = useState<'album' | 'matches' | 'profile' | 'admin' | 'stats' | 'compare'>('album');
   const [albumSubTab, setAlbumSubTab] = useState<'selection' | 'repeated'>('selection');
+  const [isBulkPanelExpanded, setIsBulkPanelExpanded] = useState(false);
 
   // Inline auth states for visitor panel
   const [authFormIsRegister, setAuthFormIsRegister] = useState(false);
@@ -3525,114 +3526,140 @@ export default function App() {
 
                 {/* Unified Bulk Marking Tool Belt (Painel de Marcação em Massa) */}
                 <div id="bulk-markings-panel" className="bg-gradient-to-r from-slate-50 to-slate-100/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
-                  <div className="flex items-center justify-between border-b border-slate-200/50 pb-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkPanelExpanded(!isBulkPanelExpanded)}
+                    className="flex items-center justify-between w-full text-left focus:outline-none cursor-pointer group"
+                  >
                     <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 flex items-center gap-1.5 font-sans">
                       ⚡ Painel de Marcação em Lote (Massa)
-                    </span>
-                    {bulkLoading && (
-                      <span className="text-[10.5px] text-emerald-600 font-extrabold animate-pulse flex items-center gap-1 font-mono">
-                        Por favor, aguarde...
+                      <span className="text-[9px] bg-slate-200 group-hover:bg-slate-300 text-slate-700 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-normal transition">
+                        {isBulkPanelExpanded ? 'Ocultar' : 'Expandir / Usar'}
                       </span>
-                    )}
-                  </div>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {bulkLoading && (
+                        <span className="text-[10.5px] text-emerald-600 font-extrabold animate-pulse flex items-center gap-1 font-mono mr-2">
+                          Por favor, aguarde...
+                        </span>
+                      )}
+                      <span className="text-slate-400 text-xs font-bold font-mono transition group-hover:text-slate-600">
+                        {isBulkPanelExpanded ? '▲' : '▼'}
+                      </span>
+                    </div>
+                  </button>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Active Filter Scope */}
-                    <div className="flex flex-col gap-2">
-                      <div>
-                        <span className="text-[11px] font-extrabold text-slate-700 block">Do Filtro / Busca Ativa:</span>
-                        <p className="text-[9.5px] text-slate-450 mt-0.5 leading-relaxed">
-                          Aplica sobre {(selectedGroup === 'TODOS' && selectedTeam === 'TODOS' && !searchText.trim()) ? 'todas' : 'as'} figurinhas que correspondem aos seus filtros ou texto de busca atual.
-                        </p>
+                  {isBulkPanelExpanded && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-200/50 pt-3">
+                      {/* Active Filter Scope */}
+                      <div className="flex flex-col gap-2">
+                        <div>
+                          <span className="text-[11px] font-extrabold text-slate-700 block">Do Filtro / Busca Ativa:</span>
+                          <p className="text-[9.5px] text-slate-450 mt-0.5 leading-relaxed">
+                            Aplica sobre {(selectedGroup === 'TODOS' && selectedTeam === 'TODOS' && !searchText.trim()) ? 'todas' : 'as'} figurinhas que correspondem aos seus filtros ou texto de busca atual.
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5 font-sans">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm("Deseja marcar TODAS as figurinhas correspondentes ao filtro ativo como FALTANDO?")) {
+                                handleBulkApply('filtered', 'missing');
+                              }
+                            }}
+                            disabled={bulkLoading}
+                            className="px-2 py-1.5 bg-amber-50 hover:bg-amber-100/80 border border-amber-250 text-amber-850 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5 animate-fadeIn"
+                            title="Marcar resultados do filtro ativo como Falta"
+                          >
+                            <span className="text-xs">📍</span>
+                            <span>Falta</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm("Deseja marcar TODAS as figurinhas correspondentes ao filtro ativo como REPETIDAS?")) {
+                                handleBulkApply('filtered', 'repeated');
+                              }
+                            }}
+                            disabled={bulkLoading}
+                            className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100/80 border border-blue-250 text-blue-850 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5 animate-fadeIn"
+                            title="Marcar resultados do filtro ativo como Repetida"
+                          >
+                            <span className="text-xs">🔄</span>
+                            <span>Repetida</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm("Deseja marcar TODAS as figurinhas correspondentes ao filtro ativo como ADQUIRIDAS (TENHO)?")) {
+                                handleBulkApply('filtered', 'owned');
+                              }
+                            }}
+                            disabled={bulkLoading}
+                            className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100/85 border border-emerald-250 text-emerald-850 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5 animate-fadeIn"
+                            title="Marcar resultados do filtro ativo como Tenho (Sem marcação de falta/repetida)"
+                          >
+                            <span className="text-xs">✔️</span>
+                            <span>Tenho</span>
+                          </button>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-1.5 font-sans">
-                        <button
-                          type="button"
-                          onClick={() => handleBulkApply('filtered', 'missing')}
-                          disabled={bulkLoading}
-                          className="px-2 py-1.5 bg-amber-50 hover:bg-amber-100/80 border border-amber-250 text-amber-850 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5"
-                          title="Marcar resultados do filtro ativo como Falta"
-                        >
-                          <span className="text-xs">📍</span>
-                          <span>Falta</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleBulkApply('filtered', 'repeated')}
-                          disabled={bulkLoading}
-                          className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100/80 border border-blue-250 text-blue-850 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5"
-                          title="Marcar resultados do filtro ativo como Repetida"
-                        >
-                          <span className="text-xs">🔄</span>
-                          <span>Repetida</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleBulkApply('filtered', 'owned')}
-                          disabled={bulkLoading}
-                          className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100/85 border border-emerald-250 text-emerald-850 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5"
-                          title="Marcar resultados do filtro ativo como Tenho (Sem marcação de falta/repetida)"
-                        >
-                          <span className="text-xs">✔️</span>
-                          <span>Tenho</span>
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Total Album Scope */}
-                    <div className="flex flex-col gap-2">
-                      <div>
-                        <span className="text-[11px] font-extrabold text-slate-700 block">Todo o Álbum (Geral):</span>
-                        <p className="text-[9.5px] text-slate-450 mt-0.5 leading-relaxed">
-                          Aplica de forma global a todas as 715 figurinhas para preenchimento rápido.
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1.5 font-sans">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm("Deseja marcar TODO O ÁLBUM (715 figurinhas) como FALTANDO? Isso sobrescreverá as marcações existentes e pode levar alguns segundos na nuvem.")) {
-                              handleBulkApply('album', 'missing');
-                            }
-                          }}
-                          disabled={bulkLoading}
-                          className="px-2 py-1.5 bg-red-50 hover:bg-red-100/90 border border-red-200 text-red-900 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5"
-                          title="Marcar todo o álbum como Falta"
-                        >
-                          <span className="text-xs">📍</span>
-                          <span>Falta</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm("Deseja marcar TODO O ÁLBUM (715 figurinhas) como REPETIDAS? Isso sobrescreverá as marcações existentes e pode levar alguns segundos na nuvem.")) {
-                              handleBulkApply('album', 'repeated');
-                            }
-                          }}
-                          disabled={bulkLoading}
-                          className="px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100/90 border border-indigo-200 text-indigo-900 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5"
-                          title="Marcar todo o álbum como Repetida"
-                        >
-                          <span className="text-xs">🔄</span>
-                          <span>Repetida</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm("Deseja limpar todo o seu álbum e marcar tudo como TENHO?")) {
-                              handleBulkApply('album', 'owned');
-                            }
-                          }}
-                          disabled={bulkLoading}
-                          className="px-2 py-1.5 bg-slate-200 hover:bg-slate-300 border border-slate-350 text-slate-800 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5"
-                          title="Limpar todas as marcações de falta/repetida do álbum inteiro"
-                        >
-                          <span className="text-xs">✔️</span>
-                          <span>Tenho</span>
-                        </button>
+                      {/* Total Album Scope */}
+                      <div className="flex flex-col gap-2">
+                        <div>
+                          <span className="text-[11px] font-extrabold text-slate-700 block">Todo o Álbum (Geral):</span>
+                          <p className="text-[9.5px] text-slate-450 mt-0.5 leading-relaxed">
+                            Aplica de forma global a todas as 715 figurinhas para preenchimento rápido.
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5 font-sans">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm("Deseja marcar TODO O ÁLBUM (715 figurinhas) como FALTANDO? Isso sobrescreverá as marcações existentes e pode levar alguns segundos na nuvem.")) {
+                                handleBulkApply('album', 'missing');
+                              }
+                            }}
+                            disabled={bulkLoading}
+                            className="px-2 py-1.5 bg-red-50 hover:bg-red-100/90 border border-red-200 text-red-900 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5"
+                            title="Marcar todo o álbum como Falta"
+                          >
+                            <span className="text-xs">📍</span>
+                            <span>Falta</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm("Deseja marcar TODO O ÁLBUM (715 figurinhas) como REPETIDAS? Isso sobrescreverá as marcações existentes e pode levar alguns segundos na nuvem.")) {
+                                handleBulkApply('album', 'repeated');
+                              }
+                            }}
+                            disabled={bulkLoading}
+                            className="px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100/90 border border-indigo-200 text-indigo-900 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5"
+                            title="Marcar todo o álbum como Repetida"
+                          >
+                            <span className="text-xs">🔄</span>
+                            <span>Repetida</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm("Deseja limpar todo o seu álbum e marcar tudo como TENHO?")) {
+                                handleBulkApply('album', 'owned');
+                              }
+                            }}
+                            disabled={bulkLoading}
+                            className="px-2 py-1.5 bg-slate-200 hover:bg-slate-300 border border-slate-350 text-slate-800 rounded-lg text-[10px] font-black uppercase tracking-wider transition disabled:opacity-50 cursor-pointer text-center font-sans shadow-xs flex flex-col items-center justify-center gap-0.5"
+                            title="Limpar todas as marcações de falta/repetida do álbum inteiro"
+                          >
+                            <span className="text-xs">✔️</span>
+                            <span>Tenho</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Team Quick Tool Belt */}
@@ -3644,7 +3671,12 @@ export default function App() {
                     <div className="flex gap-2 flex-wrap">
                       <button 
                         type="button"
-                        onClick={() => handleBulkSetTeam(selectedTeam, 'missing')}
+                        onClick={() => {
+                          const tName = TEAMS.find(t => t.code === selectedTeam)?.name || selectedTeam;
+                          if (window.confirm(`Deseja marcar TODAS as figurinhas de ${tName} como FALTANDO?`)) {
+                            handleBulkSetTeam(selectedTeam, 'missing');
+                          }
+                        }}
                         disabled={bulkLoading}
                         className="px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200/70 border border-amber-300 text-amber-850 rounded-lg text-[10px] font-extrabold transition shadow-sm cursor-pointer"
                       >
@@ -3652,7 +3684,12 @@ export default function App() {
                       </button>
                       <button 
                         type="button"
-                        onClick={() => handleBulkSetTeam(selectedTeam, 'repeated')}
+                        onClick={() => {
+                          const tName = TEAMS.find(t => t.code === selectedTeam)?.name || selectedTeam;
+                          if (window.confirm(`Deseja marcar TODAS as figurinhas de ${tName} como REPETIDAS?`)) {
+                            handleBulkSetTeam(selectedTeam, 'repeated');
+                          }
+                        }}
                         disabled={bulkLoading}
                         className="px-2.5 py-1.5 bg-blue-100 hover:bg-blue-200/70 border border-blue-300 text-blue-800 rounded-lg text-[10px] font-extrabold transition shadow-sm cursor-pointer"
                       >
@@ -3660,7 +3697,12 @@ export default function App() {
                       </button>
                       <button 
                         type="button"
-                        onClick={() => handleBulkSetTeam(selectedTeam, 'owned')}
+                        onClick={() => {
+                          const tName = TEAMS.find(t => t.code === selectedTeam)?.name || selectedTeam;
+                          if (window.confirm(`Deseja marcar TODAS as figurinhas de ${tName} como ADQUIRIDAS (TENHO)?`)) {
+                            handleBulkSetTeam(selectedTeam, 'owned');
+                          }
+                        }}
                         disabled={bulkLoading}
                         className="px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-extrabold text-slate-650 hover:text-slate-800 transition shadow-sm cursor-pointer"
                       >
