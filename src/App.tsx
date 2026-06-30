@@ -77,7 +77,10 @@ import {
   Box,
   CreditCard,
   Medal,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Mail,
+  Printer,
+  X
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
@@ -207,6 +210,110 @@ const buildSingleMatchWhatsappLink = (
   }
   
   return `https://wa.me/${withCountry}?text=${encodeURIComponent(text)}`;
+};
+
+const buildDoubleMatchEmailLink = (
+  email: string,
+  partnerName: string,
+  myRepeated: string[],
+  myMissing: string[]
+) => {
+  const mySpecials = myRepeated.filter(isStickerSpecial);
+  const myNormals = myRepeated.filter(id => !isStickerSpecial(id));
+  const myPoints = mySpecials.length * 2 + myNormals.length;
+  
+  const partnerSpecials = myMissing.filter(isStickerSpecial);
+  const partnerNormals = myMissing.filter(id => !isStickerSpecial(id));
+  const partnerPoints = partnerSpecials.length * 2 + partnerNormals.length;
+  
+  let balanceMsg = "";
+  if (myPoints === partnerPoints) {
+    balanceMsg = "Troca em perfeito equilíbrio de valor!";
+  } else if (myPoints > partnerPoints) {
+    balanceMsg = `Equilíbrio de valor: Estou oferecendo +${myPoints - partnerPoints} pontos em valor (Metalizada vale 2x normais).`;
+  } else {
+    balanceMsg = `Equilíbrio de valor: Você está me oferecendo +${partnerPoints - myPoints} pontos em valor (Metalizada vale 2x normais).`;
+  }
+
+  const subject = `Match de Figurinhas da Copa 2026! 🤝`;
+  const body = `Olá ${partnerName}!\n\nVi seu perfil no app de Figurinhas Copa 2026 e temos um Match Perfeito de trocas!\n\n` +
+    `🎁 Eu te dou: ${myRepeated.join(', ')}\n` +
+    `  ↳ ${myNormals.length} normal(is) e ${mySpecials.length} metalizada(s) (Total: ${myPoints} pts)\n\n` +
+    `⭐️ Você me dá: ${myMissing.join(', ')}\n` +
+    `  ↳ ${partnerNormals.length} normal(is) e ${partnerSpecials.length} metalizada(s) (Total: ${partnerPoints} pts)\n\n` +
+    `${balanceMsg}\n\n` +
+    `Vamos combinar a troca?\n\n--\nEnviado através do aplicativo Figurinhas Copa 2026 (https://figurinhas2026-rust.vercel.app/)`;
+    
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
+const buildGeneralMatchEmailLink = (
+  email: string,
+  partnerName: string,
+  myRepeated: string[],
+  myMissing: string[]
+) => {
+  const mySpecials = myRepeated.filter(isStickerSpecial);
+  const myNormals = myRepeated.filter(id => !isStickerSpecial(id));
+  const myPoints = mySpecials.length * 2 + myNormals.length;
+
+  const partnerSpecials = myMissing.filter(isStickerSpecial);
+  const partnerNormals = myMissing.filter(id => !isStickerSpecial(id));
+  const partnerPoints = partnerSpecials.length * 2 + partnerNormals.length;
+
+  const subject = `Oportunidade de Troca de Figurinhas - Copa 2026! 🤝`;
+  let body = `Olá ${partnerName}!\n\nVi seu perfil no app de Figurinhas Copa 2026 e reuni nossas figurinhas de interesse:\n\n`;
+
+  if (myRepeated.length > 0) {
+    body += `🎁 Eu tenho repetida que você precisa: ${myRepeated.join(', ')}\n` +
+      `  ↳ ${myNormals.length} normal(is) e ${mySpecials.length} metalizada(s) (Total: ${myPoints} pts)\n\n`;
+  } else {
+    body += `🎁 Eu tenho de repetida que você precisa: Nenhuma no momento (estou aberto a compra/negociação).\n\n`;
+  }
+
+  if (myMissing.length > 0) {
+    body += `⭐️ Você tem de repetida que eu preciso: ${myMissing.join(', ')}\n` +
+      `  ↳ ${partnerNormals.length} normal(is) e ${partnerSpecials.length} metalizada(s) (Total: ${partnerPoints} pts)\n\n`;
+  } else {
+    body += `⭐️ Você tem de repetida que eu preciso: Nenhuma no momento (estou aberto a venda/negociação).\n\n`;
+  }
+
+  if (myRepeated.length > 0 && myMissing.length > 0) {
+    let balanceMsg = "";
+    if (myPoints === partnerPoints) {
+      balanceMsg = "Troca em perfeito equilíbrio de valor!";
+    } else if (myPoints > partnerPoints) {
+      balanceMsg = `Equilíbrio de valor: Estou oferecendo +${myPoints - partnerPoints} pontos em valor (Metalizada vale 2x normais).`;
+    } else {
+      balanceMsg = `Equilíbrio de valor: Você está me oferecendo +${partnerPoints - myPoints} pontos em valor (Metalizada vale 2x normais).`;
+    }
+    body += `${balanceMsg}\n\n`;
+  }
+
+  body += `Gostaria de fechar negócio?\n\n--\nEnviado através do aplicativo Figurinhas Copa 2026 (https://figurinhas2026-rust.vercel.app/)`;
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
+const buildSingleMatchEmailLink = (
+  email: string,
+  partnerName: string,
+  stickerId: string,
+  type: 'he_has_my_missing' | 'i_have_his_missing'
+) => {
+  const isSpecial = isStickerSpecial(stickerId);
+  const stickerTypeStr = isSpecial ? 'Metalizada (Vale 2 normais)' : 'Normal';
+  
+  const subject = `Troca de Figurinha da Copa 2026 - ${stickerId} 🏆`;
+  let body = '';
+  if (type === 'he_has_my_missing') {
+    body = `Olá ${partnerName}!\n\nVi no app de Figurinhas Copa 2026 que você tem a figurinha repetida [ ${stickerId} ] (${stickerTypeStr}) que eu preciso muito!\n` +
+      `Gostaria de fechar um negócio ou ver minhas repetidas para trocar?\n\n--\nEnviado através do aplicativo Figurinhas Copa 2026 (https://figurinhas2026-rust.vercel.app/)`;
+  } else {
+    body = `Olá ${partnerName}!\n\nVi no app de Figurinhas Copa 2026 que você precisa da figurinha [ ${stickerId} ] (${stickerTypeStr}) que eu tenho repetida!\n` +
+      `Gostaria de fechar uma troca?\n\n--\nEnviado através do aplicativo Figurinhas Copa 2026 (https://figurinhas2026-rust.vercel.app/)`;
+  }
+  
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 };
 
 const DEFAULT_JIMI_STICKERS: Record<string, UserSticker> = {
@@ -459,6 +566,12 @@ export default function App() {
   const [statsSubTab, setStatsSubTab] = useState<'meu_album' | 'comunidade'>('meu_album');
   const [isImporting, setIsImporting] = useState(false);
   const prevDoubleMatchUidsRef = useRef<string[] | null>(null);
+
+  // Checklist Print States
+  const [showPrintChecklist, setShowPrintChecklist] = useState(false);
+  const [printScope, setPrintScope] = useState<'only_active' | 'full_album'>('only_active');
+  const [printFilter, setPrintFilter] = useState<'both' | 'missing' | 'repeated'>('both');
+  const [printLayout, setPrintLayout] = useState<'detailed' | 'compact'>('detailed');
 
   // Search & Custom interactive marking layout states
   const [searchText, setSearchText] = useState('');
@@ -2175,6 +2288,7 @@ export default function App() {
         partnerUid: partnerId,
         partnerName: partnerProfile.displayName,
         partnerWhatsapp: partnerProfile.whatsapp,
+        partnerEmail: partnerProfile.email,
         type: 'he_has_my_missing'
       });
     });
@@ -2187,6 +2301,7 @@ export default function App() {
         partnerUid: partnerId,
         partnerName: partnerProfile.displayName,
         partnerWhatsapp: partnerProfile.whatsapp,
+        partnerEmail: partnerProfile.email,
         type: 'i_have_his_missing'
       });
     });
@@ -2198,6 +2313,7 @@ export default function App() {
         partnerUid: partnerId,
         partnerName: partnerProfile.displayName,
         partnerWhatsapp: partnerProfile.whatsapp,
+        partnerEmail: partnerProfile.email,
         myRepeated: iHaveTheirMissing, // what I give to them
         myMissing: theyHaveMyMissing   // what they give to me
       });
@@ -2356,8 +2472,78 @@ export default function App() {
 
   const filteredStickers = getFilteredStickers();
 
+  const getChecklistData = () => {
+    // FIFA Especial stickers
+    const fifaStickers = STICKERS.filter(s => s.teamCode === 'FIFA').map(s => {
+      const state = myStickers[s.id];
+      return {
+        sticker: s,
+        status: state?.status || 'none',
+        quantity: state?.quantity || 1
+      };
+    });
+
+    const sections = [
+      {
+        teamCode: 'FIFA',
+        teamName: 'FIFA Especial',
+        flag: '✨',
+        stickers: fifaStickers
+      }
+    ];
+
+    // Teams stickers
+    TEAMS.forEach(team => {
+      const teamStickers = STICKERS.filter(s => s.teamCode === team.code).map(s => {
+        const state = myStickers[s.id];
+        return {
+          sticker: s,
+          status: state?.status || 'none',
+          quantity: state?.quantity || 1
+        };
+      });
+      sections.push({
+        teamCode: team.code,
+        teamName: team.name,
+        flag: team.flagUrl,
+        stickers: teamStickers
+      });
+    });
+
+    return sections;
+  };
+
+  const getFilteredChecklistSections = (scope: 'only_active' | 'full_album', filter: 'both' | 'missing' | 'repeated') => {
+    const allSections = getChecklistData();
+    
+    return allSections.map(section => {
+      const filteredStickers = section.stickers.filter(item => {
+        if (scope === 'full_album') {
+          return true; // include all stickers
+        }
+        
+        // only_active scope
+        const status = item.status;
+        if (filter === 'missing') {
+          return status === 'none' || status === 'missing';
+        }
+        if (filter === 'repeated') {
+          return status === 'repeated';
+        }
+        // both
+        return status === 'none' || status === 'missing' || status === 'repeated';
+      });
+
+      return {
+        ...section,
+        stickers: filteredStickers
+      };
+    }).filter(section => section.stickers.length > 0);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-sky-50/50 via-emerald-50/40 to-amber-50/50 text-slate-800 font-sans flex flex-col">
+    <>
+      <div className="min-h-screen bg-gradient-to-tr from-sky-50/50 via-emerald-50/40 to-amber-50/50 text-slate-800 font-sans flex flex-col print:hidden">
       
       {/* Dynamic Header */}
       <header className="bg-white/95 backdrop-blur-md border-b border-emerald-100 sticky top-0 z-50 shadow-sm text-slate-800">
@@ -2714,6 +2900,14 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowPrintChecklist(true)}
+                      className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-850 border border-sky-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <Printer className="w-3.5 h-3.5 shrink-0" />
+                      Imprimir Checklist
+                    </button>
                     <button
                       type="button"
                       onClick={() => setShowImportExport(!showImportExport)}
@@ -4224,7 +4418,7 @@ export default function App() {
                             >
                               <Check className="w-3.5 h-3.5 text-white" /> Aplicar Troca Realizada
                             </button>
-                            {match.partnerWhatsapp && (
+                            {match.partnerWhatsapp ? (
                               <a 
                                 href={buildDoubleMatchWhatsappLink(match.partnerWhatsapp, match.partnerName, match.myRepeated, match.myMissing)}
                                 target="_blank"
@@ -4233,6 +4427,15 @@ export default function App() {
                               >
                                 <Phone className="w-3.5 h-3.5 text-white" /> Combinar WhatsApp
                               </a>
+                            ) : (
+                              match.partnerEmail && (
+                                <a 
+                                  href={buildDoubleMatchEmailLink(match.partnerEmail, match.partnerName, match.myRepeated, match.myMissing)}
+                                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-550 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer animate-fadeIn"
+                                >
+                                  <Mail className="w-3.5 h-3.5 text-white" /> Combinar por E-mail
+                                </a>
+                              )
                             )}
                             <button
                               type="button"
@@ -4480,6 +4683,7 @@ export default function App() {
                       partnerUid: string;
                       partnerName: string;
                       partnerWhatsapp?: string;
+                      partnerEmail?: string;
                       stickers: { stickerId: string; stickerName: string; type: 'he_has_my_missing' | 'i_have_his_missing' }[];
                     }> = {};
                     singleMatchesList.filter(m => m.type === 'he_has_my_missing').forEach(m => {
@@ -4488,6 +4692,7 @@ export default function App() {
                           partnerUid: m.partnerUid,
                           partnerName: m.partnerName,
                           partnerWhatsapp: m.partnerWhatsapp,
+                          partnerEmail: m.partnerEmail,
                           stickers: []
                         };
                       }
@@ -4528,10 +4733,16 @@ export default function App() {
                             </div>
                             
                             <div className="flex items-center gap-2 pointer-events-none">
-                              {group.partnerWhatsapp && (
+                              {group.partnerWhatsapp ? (
                                 <span className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider font-mono">
                                   WhatsApp
                                 </span>
+                              ) : (
+                                group.partnerEmail && (
+                                  <span className="text-[9px] text-sky-700 bg-sky-50 border border-sky-100 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider font-mono animate-fadeIn">
+                                    E-mail
+                                  </span>
+                                )
                               )}
                               <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'transform rotate-180 text-emerald-600' : ''}`} />
                             </div>
@@ -4552,7 +4763,7 @@ export default function App() {
                                       </p>
                                     </div>
                                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                                      {group.partnerWhatsapp && (
+                                      {group.partnerWhatsapp ? (
                                         <a 
                                           href={buildGeneralMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
                                           target="_blank"
@@ -4562,6 +4773,16 @@ export default function App() {
                                         >
                                           <Phone className="w-3.5 h-3.5 text-white shrink-0" /> Chamar WhatsApp (Lista Completa)
                                         </a>
+                                      ) : (
+                                        group.partnerEmail && (
+                                          <a 
+                                            href={buildGeneralMatchEmailLink(group.partnerEmail, group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
+                                            className="py-2 px-3 bg-sky-600 hover:bg-sky-550 text-white rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[38px] w-full sm:w-auto text-center animate-fadeIn"
+                                            title="Enviar Proposta completa via E-mail"
+                                          >
+                                            <Mail className="w-3.5 h-3.5 text-white shrink-0" /> Enviar Proposta por E-mail
+                                          </a>
+                                        )
                                       )}
                                       <button
                                         type="button"
@@ -4593,7 +4814,7 @@ export default function App() {
                                       </span>
                                     </div>
 
-                                    {group.partnerWhatsapp && (
+                                    {group.partnerWhatsapp ? (
                                       <a 
                                         href={buildSingleMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, stk.stickerId, stk.type)}
                                         target="_blank"
@@ -4603,6 +4824,16 @@ export default function App() {
                                       >
                                         <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Combinar Troca
                                       </a>
+                                    ) : (
+                                      group.partnerEmail && (
+                                        <a 
+                                          href={buildSingleMatchEmailLink(group.partnerEmail, group.partnerName, stk.stickerId, stk.type)}
+                                          className="py-2.5 sm:py-1 px-3 sm:px-2.5 bg-slate-100 hover:bg-sky-50 hover:text-sky-700 hover:border-sky-205 border border-slate-205 text-slate-655 rounded-lg transition-all cursor-pointer font-semibold flex items-center justify-center gap-1.5 text-xs sm:text-[11px] w-full sm:w-auto min-h-[44px] sm:min-h-0 animate-fadeIn"
+                                          title="Combinar por E-mail"
+                                        >
+                                          <Mail className="w-3.5 h-3.5 text-sky-600 shrink-0" /> Combinar Troca
+                                        </a>
+                                      )
                                     )}
                                   </div>
                                 );
@@ -4629,6 +4860,7 @@ export default function App() {
                       partnerUid: string;
                       partnerName: string;
                       partnerWhatsapp?: string;
+                      partnerEmail?: string;
                       stickers: { stickerId: string; stickerName: string; type: 'he_has_my_missing' | 'i_have_his_missing' }[];
                     }> = {};
                     singleMatchesList.filter(m => m.type === 'i_have_his_missing').forEach(m => {
@@ -4637,6 +4869,7 @@ export default function App() {
                           partnerUid: m.partnerUid,
                           partnerName: m.partnerName,
                           partnerWhatsapp: m.partnerWhatsapp,
+                          partnerEmail: m.partnerEmail,
                           stickers: []
                         };
                       }
@@ -4677,10 +4910,16 @@ export default function App() {
                             </div>
                             
                             <div className="flex items-center gap-2 pointer-events-none">
-                              {group.partnerWhatsapp && (
+                              {group.partnerWhatsapp ? (
                                 <span className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider font-mono">
                                   WhatsApp
                                 </span>
+                              ) : (
+                                group.partnerEmail && (
+                                  <span className="text-[9px] text-sky-700 bg-sky-50 border border-sky-100 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider font-mono animate-fadeIn">
+                                    E-mail
+                                  </span>
+                                )
                               )}
                               <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'transform rotate-180 text-emerald-600' : ''}`} />
                             </div>
@@ -4701,7 +4940,7 @@ export default function App() {
                                       </p>
                                     </div>
                                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                                      {group.partnerWhatsapp && (
+                                      {group.partnerWhatsapp ? (
                                         <a 
                                           href={buildGeneralMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
                                           target="_blank"
@@ -4711,6 +4950,16 @@ export default function App() {
                                         >
                                           <Phone className="w-3.5 h-3.5 text-white shrink-0" /> Chamar WhatsApp (Lista Completa)
                                         </a>
+                                      ) : (
+                                        group.partnerEmail && (
+                                          <a 
+                                            href={buildGeneralMatchEmailLink(group.partnerEmail, group.partnerName, myRepeatedToPartner, partnerRepeatedToMe)}
+                                            className="py-2 px-3 bg-sky-600 hover:bg-sky-550 text-white rounded-lg transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 text-[11px] min-h-[38px] w-full sm:w-auto text-center animate-fadeIn"
+                                            title="Enviar Proposta completa via E-mail"
+                                          >
+                                            <Mail className="w-3.5 h-3.5 text-white shrink-0" /> Enviar Proposta por E-mail
+                                          </a>
+                                        )
                                       )}
                                       <button
                                         type="button"
@@ -4742,7 +4991,7 @@ export default function App() {
                                       </span>
                                     </div>
 
-                                    {group.partnerWhatsapp && (
+                                    {group.partnerWhatsapp ? (
                                       <a 
                                         href={buildSingleMatchWhatsappLink(group.partnerWhatsapp, group.partnerName, stk.stickerId, stk.type)}
                                         target="_blank"
@@ -4752,6 +5001,16 @@ export default function App() {
                                       >
                                         <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Combinar Troca
                                       </a>
+                                    ) : (
+                                      group.partnerEmail && (
+                                        <a 
+                                          href={buildSingleMatchEmailLink(group.partnerEmail, group.partnerName, stk.stickerId, stk.type)}
+                                          className="py-2.5 sm:py-1 px-3 sm:px-2.5 bg-slate-100 hover:bg-sky-50 hover:text-sky-700 hover:border-sky-205 border border-slate-205 text-slate-655 rounded-lg transition-all cursor-pointer font-semibold flex items-center justify-center gap-1.5 text-xs sm:text-[11px] w-full sm:w-auto min-h-[44px] sm:min-h-0 animate-fadeIn"
+                                          title="Combinar por E-mail"
+                                        >
+                                          <Mail className="w-3.5 h-3.5 text-sky-600 shrink-0" /> Combinar Troca
+                                        </a>
+                                      )
                                     )}
                                   </div>
                                 );
@@ -5492,6 +5751,387 @@ export default function App() {
         </AnimatePresence>
       </div>
 
+      {/* Modal Interativo de Configuração de Impressão */}
+      {showPrintChecklist && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-fadeIn">
+            {/* Cabeçalho do Modal */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-white">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">Checklist para Impressão 🖨️</h3>
+                  <p className="text-xs text-slate-500 font-medium">Gere uma lista otimizada para levar a encontros de troca presenciais</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPrintChecklist(false)}
+                className="text-slate-400 hover:text-slate-650 transition cursor-pointer p-1.5 hover:bg-slate-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Corpo do Modal */}
+            <div className="p-6 overflow-y-auto flex flex-col md:flex-row gap-6 bg-slate-50/50">
+              {/* Painel de Controles */}
+              <div className="w-full md:w-80 flex flex-col gap-5 shrink-0">
+                {/* Opção 1: Escopo */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider">1. Escopo da Lista</label>
+                  <div className="flex flex-col gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPrintScope('only_active')}
+                      className={`w-full py-2.5 px-3 text-left rounded-xl text-xs font-bold border transition flex items-center justify-between cursor-pointer ${
+                        printScope === 'only_active'
+                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>Faltantes e Repetidas Ativas</span>
+                      {printScope === 'only_active' && <Check className="w-4 h-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPrintScope('full_album')}
+                      className={`w-full py-2.5 px-3 text-left rounded-xl text-xs font-bold border transition flex items-center justify-between cursor-pointer ${
+                        printScope === 'full_album'
+                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>Álbum Completo (Todas)</span>
+                      {printScope === 'full_album' && <Check className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Opção 2: Filtro */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider">2. Tipo de Filtro</label>
+                  <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setPrintFilter('both')}
+                      className={`py-1.5 rounded-lg transition text-center cursor-pointer ${
+                        printFilter === 'both' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Ambos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPrintFilter('missing')}
+                      className={`py-1.5 rounded-lg transition text-center cursor-pointer ${
+                        printFilter === 'missing' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Faltantes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPrintFilter('repeated')}
+                      className={`py-1.5 rounded-lg transition text-center cursor-pointer ${
+                        printFilter === 'repeated' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Repetidas
+                    </button>
+                  </div>
+                </div>
+
+                {/* Opção 3: Layout */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider">3. Formato do Layout</label>
+                  <div className="flex flex-col gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPrintLayout('detailed')}
+                      className={`w-full py-2.5 px-3 text-left rounded-xl text-xs font-bold border transition flex items-center justify-between cursor-pointer ${
+                        printLayout === 'detailed'
+                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div>
+                        <p>Checklist Detalhado</p>
+                        <p className="text-[10px] opacity-80 font-normal mt-0.5">Quadrados em branco para marcar a caneta</p>
+                      </div>
+                      {printLayout === 'detailed' && <Check className="w-4 h-4 shrink-0" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPrintLayout('compact')}
+                      className={`w-full py-2.5 px-3 text-left rounded-xl text-xs font-bold border transition flex items-center justify-between cursor-pointer ${
+                        printLayout === 'compact'
+                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div>
+                        <p>Compacto (Ultra-rápido)</p>
+                        <p className="text-[10px] opacity-80 font-normal mt-0.5">Lista de códigos corrido. Economiza papel!</p>
+                      </div>
+                      {printLayout === 'compact' && <Check className="w-4 h-4 shrink-0" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Dica de Impressão */}
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-2.5 text-xs text-amber-950 leading-relaxed font-medium">
+                  <HelpCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-extrabold text-amber-950 block">Dica para Impressão:</span>
+                    <span>
+                      Para um resultado perfeito, ative a opção <strong className="font-bold">"Imprimir gráficos de fundo"</strong> nas configurações da sua impressora.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Visualização Prévia */}
+              <div className="flex-1 flex flex-col gap-3 min-w-0">
+                <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>Visualização Prévia do Papel</span>
+                  <span className="text-[10px] bg-slate-200 text-slate-600 font-bold px-2 py-0.5 rounded-full uppercase tracking-normal">Apenas Visualização</span>
+                </label>
+                
+                <div className="flex-1 bg-white border border-slate-200 rounded-2xl p-5 overflow-y-auto max-h-[50vh] md:max-h-[400px] shadow-inner text-slate-800">
+                  <div className="space-y-6">
+                    {/* Cabeçalho da Prévia */}
+                    <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="font-extrabold text-base text-slate-900">Checklist de Figurinhas - Copa 2026</h4>
+                        <p className="text-[11px] text-slate-500 font-semibold">
+                          Gerado em {new Date().toLocaleDateString('pt-BR')} por {user?.displayName || 'Colecionador'}
+                        </p>
+                      </div>
+                      <div className="text-right text-[10px] text-slate-450 font-mono font-bold bg-slate-100 border border-slate-200 px-2 py-1 rounded">
+                        {printScope === 'only_active' ? 'PAINEL PESSOAL' : 'ÁLBUM INTEIRO'}
+                      </div>
+                    </div>
+
+                    {/* Seções de Figurinhas */}
+                    {(() => {
+                      const previewSections = getFilteredChecklistSections(printScope, printFilter);
+                      if (previewSections.length === 0) {
+                        return (
+                          <div className="text-center py-12 text-slate-400 text-sm">
+                            Nenhuma figurinha corresponde aos filtros selecionados.
+                          </div>
+                        );
+                      }
+
+                      if (printLayout === 'detailed') {
+                        return (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {previewSections.map(sec => (
+                              <div key={sec.teamCode} className="border border-slate-200 p-3 rounded-xl bg-slate-50/20">
+                                <h5 className="font-bold text-xs border-b border-slate-100 pb-1 mb-2 flex items-center gap-1.5 text-slate-700">
+                                  <span>{sec.flag}</span>
+                                  <span>{sec.teamName}</span>
+                                  <span className="text-[10px] text-slate-400 font-normal ml-auto">({sec.stickers.length} un)</span>
+                                </h5>
+                                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                  {sec.stickers.map(item => {
+                                    const isRepeated = item.status === 'repeated';
+                                    return (
+                                      <div key={item.sticker.id} className="flex items-center gap-1.5 font-mono">
+                                        <div className="w-3.5 h-3.5 border border-slate-400 rounded bg-white"></div>
+                                        <span className={`font-semibold ${item.sticker.isSpecial ? 'text-amber-800 font-extrabold' : ''}`}>{item.sticker.id}</span>
+                                        {isRepeated && (
+                                          <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1 rounded border border-emerald-150 font-sans font-bold">
+                                            R{item.quantity > 1 ? `x${item.quantity}` : ''}
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {previewSections.map(sec => {
+                              const missingCodes = sec.stickers.filter(i => i.status === 'none' || i.status === 'missing').map(i => i.sticker.id);
+                              const repeatedCodes = sec.stickers.filter(i => i.status === 'repeated').map(i => `${i.sticker.id}${i.quantity > 1 ? `(x${i.quantity})` : ''}`);
+                              
+                              return (
+                                <div key={sec.teamCode} className="border border-slate-200 p-3 rounded-xl bg-slate-50/20">
+                                  <h5 className="font-bold text-xs border-b border-slate-100 pb-1 mb-2 flex items-center gap-1.5 text-slate-700">
+                                    <span>{sec.flag}</span>
+                                    <span className="truncate">{sec.teamName}</span>
+                                  </h5>
+                                  
+                                  {missingCodes.length > 0 && (
+                                    <div className="mb-1 leading-relaxed text-[11px]">
+                                      <strong className="font-extrabold text-red-700 mr-1 text-[9px] uppercase font-sans">Faltas:</strong>
+                                      <span className="font-mono text-slate-600 font-medium">{missingCodes.join(', ')}</span>
+                                    </div>
+                                  )}
+                                  
+                                  {repeatedCodes.length > 0 && (
+                                    <div className="leading-relaxed text-[11px]">
+                                      <strong className="font-extrabold text-emerald-700 mr-1 text-[9px] uppercase font-sans">Repes:</strong>
+                                      <span className="font-mono text-slate-600 font-medium">{repeatedCodes.join(', ')}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      }
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Rodapé do Modal */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-end items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowPrintChecklist(false)}
+                className="w-full sm:w-auto px-5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer text-center"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  window.print();
+                }}
+                className="w-full sm:w-auto px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center justify-center gap-2 cursor-pointer text-center"
+              >
+                <Printer className="w-4 h-4 shrink-0" />
+                Imprimir Checklist Agora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
-  );
+
+    {/* Estrutura Exclusiva de Impressão (Fundo branco, texto preto, sem componentes do app) */}
+    <div className="hidden print:block bg-white text-black p-8 font-sans w-full text-xs">
+      {/* Cabeçalho de Impressão */}
+      <div className="border-b-4 border-slate-900 pb-3 mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black uppercase tracking-wide">🏆 Figurinhas Copa 2026 - Checklist de Trocas</h1>
+          <p className="text-xs text-slate-500 mt-1 font-bold">
+            Gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')} por {user?.displayName || 'Colecionador'}
+          </p>
+        </div>
+        <div className="text-right text-xs font-black font-mono bg-slate-100 border border-slate-300 px-3 py-1 rounded-lg">
+          {printScope === 'only_active' ? 'SÓ MEU PAINEL' : 'ÁLBUM INTEIRO'}
+        </div>
+      </div>
+
+      {/* Bloco de Legenda */}
+      <div className="border border-slate-300 p-3 rounded-lg mb-6 flex flex-wrap items-center gap-x-6 gap-y-1 bg-slate-50">
+        <div className="text-xs font-black uppercase text-slate-700 tracking-wider">Legenda de Marcação Manual:</div>
+        <div className="flex items-center gap-1.5 font-mono text-xs">
+          <span className="inline-block w-3.5 h-3.5 border border-slate-600 rounded bg-white"></span>
+          <span>Caixa de Seleção (Para marcar novas figurinhas adquiridas)</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-mono text-xs">
+          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold font-sans">R</span>
+          <span>Repetida (Disponível para trocar)</span>
+        </div>
+      </div>
+
+      {/* Conteúdo do Checklist para Impressão */}
+      {(() => {
+        const printSections = getFilteredChecklistSections(printScope, printFilter);
+        
+        if (printSections.length === 0) {
+          return (
+            <div className="text-center py-12 text-slate-500 text-sm border-2 border-dashed border-slate-300 rounded-xl font-bold">
+              Nenhuma figurinha corresponde aos filtros e escopo selecionados para impressão.
+            </div>
+          );
+        }
+
+        if (printLayout === 'detailed') {
+          return (
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+              {printSections.map(sec => (
+                <div key={sec.teamCode} className="border border-slate-300 p-3 rounded-xl bg-white break-inside-avoid">
+                  <h2 className="font-black text-sm border-b-2 border-slate-200 pb-1.5 mb-2.5 flex items-center gap-2">
+                    <span>{sec.flag}</span>
+                    <span>{sec.teamName}</span>
+                    <span className="text-[11px] text-slate-500 font-mono font-bold ml-auto">({sec.stickers.length})</span>
+                  </h2>
+                  <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 text-xs">
+                    {sec.stickers.map(item => {
+                      const isRepeated = item.status === 'repeated';
+                      return (
+                        <div key={item.sticker.id} className="flex items-center gap-1.5 font-mono">
+                          <span className="inline-block w-3.5 h-3.5 border border-slate-700 rounded-xs bg-white shrink-0"></span>
+                          <span className={`font-black text-[12px] ${item.sticker.isSpecial ? 'text-amber-950 font-black border-b border-amber-400' : 'text-slate-900'}`}>
+                            {item.sticker.id}
+                          </span>
+                          {isRepeated && (
+                            <span className="text-[9px] bg-slate-100 text-slate-800 px-1 rounded border border-slate-300 font-sans font-bold">
+                              R{item.quantity > 1 ? `x${item.quantity}` : ''}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        } else {
+          return (
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+              {printSections.map(sec => {
+                const missingCodes = sec.stickers.filter(i => i.status === 'none' || i.status === 'missing').map(i => i.sticker.id);
+                const repeatedCodes = sec.stickers.filter(i => i.status === 'repeated').map(i => `${i.sticker.id}${i.quantity > 1 ? `(x${i.quantity})` : ''}`);
+                
+                return (
+                  <div key={sec.teamCode} className="border border-slate-300 p-3 rounded-lg bg-white break-inside-avoid">
+                    <h2 className="font-black text-xs border-b border-slate-200 pb-1 mb-1.5 flex items-center gap-1.5 text-slate-800">
+                      <span>{sec.flag}</span>
+                      <span className="truncate">{sec.teamName}</span>
+                    </h2>
+                    
+                    {missingCodes.length > 0 && (
+                      <div className="mb-1 leading-relaxed text-[11px]">
+                        <strong className="font-black text-red-800 mr-1 text-[9px] uppercase font-sans">Faltas:</strong>
+                        <span className="font-mono text-slate-800 font-semibold">{missingCodes.join(', ')}</span>
+                      </div>
+                    )}
+                    
+                    {repeatedCodes.length > 0 && (
+                      <div className="leading-relaxed text-[11px]">
+                        <strong className="font-black text-emerald-800 mr-1 text-[9px] uppercase font-sans">Repes:</strong>
+                        <span className="font-mono text-slate-800 font-semibold">{repeatedCodes.join(', ')}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        }
+      })()}
+
+      <div className="mt-8 border-t border-slate-300 pt-4 text-center text-[10px] text-slate-500 font-mono">
+        <p>Gerado pelo aplicativo Figurinhas Copa 2026 • https://figurinhas2026-rust.vercel.app/</p>
+      </div>
+    </div>
+  </>
+);
 }

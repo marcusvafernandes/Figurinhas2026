@@ -70,6 +70,7 @@ export interface SingleMatch {
   partnerUid: string;
   partnerName: string;
   partnerWhatsapp?: string;
+  partnerEmail?: string;
   type: 'he_has_my_missing' | 'i_have_his_missing';
 }
 
@@ -77,6 +78,7 @@ export interface DoubleMatch {
   partnerUid: string;
   partnerName: string;
   partnerWhatsapp?: string;
+  partnerEmail?: string;
   myRepeated: string[]; // Stickers I give
   myMissing: string[];  // Stickers I get
 }
@@ -88,6 +90,7 @@ export interface ToastNotification {
   partnerUid: string;
   partnerName: string;
   partnerWhatsapp?: string;
+  partnerEmail?: string;
   myRepeated?: string[];
   myMissing?: string[];
 }
