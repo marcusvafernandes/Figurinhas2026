@@ -33,18 +33,48 @@ export default function StatsDashboard({
     communityStats[s.id] = { missingCount: 0, ownedCount: 0, repeatedQty: 0 };
   });
 
+  // Identify all active collectors (users with at least one record in the database)
+  const activeUserIds = new Set<string>();
+  allStickersRecords.forEach(rec => {
+    activeUserIds.add(rec.userId);
+  });
+  if (user?.uid) {
+    activeUserIds.add(user.uid);
+  }
+
+  // Create a map of which stickers each user actually owns or has as repeated
+  const userHasSticker: Record<string, Record<string, boolean>> = {};
+  activeUserIds.forEach(uid => {
+    userHasSticker[uid] = {};
+  });
+
   allStickersRecords.forEach(rec => {
     if (!communityStats[rec.stickerId]) {
       communityStats[rec.stickerId] = { missingCount: 0, ownedCount: 0, repeatedQty: 0 };
     }
-    if (rec.status === 'missing') {
-      communityStats[rec.stickerId].missingCount += 1;
-    } else if (rec.status === 'owned') {
+    
+    if (rec.status === 'owned' || rec.status === 'repeated') {
+      if (!userHasSticker[rec.userId]) {
+        userHasSticker[rec.userId] = {};
+      }
+      userHasSticker[rec.userId][rec.stickerId] = true;
       communityStats[rec.stickerId].ownedCount += 1;
-    } else if (rec.status === 'repeated') {
-      communityStats[rec.stickerId].ownedCount += 1;
-      communityStats[rec.stickerId].repeatedQty += (rec.quantity || 1);
+      
+      if (rec.status === 'repeated') {
+        communityStats[rec.stickerId].repeatedQty += (rec.quantity || 1);
+      }
     }
+  });
+
+  // A sticker is considered implicitly missing for any active user who hasn't marked it as owned or repeated
+  STICKERS.forEach(s => {
+    let missingCount = 0;
+    activeUserIds.forEach(uid => {
+      if (!userHasSticker[uid]?.[s.id]) {
+        missingCount += 1;
+      }
+    });
+    communityStats[s.id].missingCount = missingCount;
   });
 
   const topMissingStickers = [...STICKERS]
@@ -262,6 +292,60 @@ export default function StatsDashboard({
     .filter(item => item.code !== 'COCA' && item.code !== 'FIFA')
     .sort((a, b) => a.pct - b.pct);
   const leastCompleteTeam = sortedTeamsByUserMissing[0];
+
+  // --- CÁLCULO DE GRUPOS E SELEÇÕES PARA A COMUNIDADE ---
+  const communitySectionCompletion = allSections.map(sec => {
+    const secStickers = STICKERS.filter(s => s.teamCode === sec.code);
+    const totalInSec = secStickers.length;
+    const totalOwnedInSecCommunity = secStickers.reduce((acc, s) => {
+      const stats = communityStats[s.id] || { ownedCount: 0 };
+      return acc + stats.ownedCount;
+    }, 0);
+    const possibleSlots = totalInSec * activeCollectorsCount;
+    const pct = possibleSlots > 0 ? Math.round((totalOwnedInSecCommunity / possibleSlots) * 100) : 0;
+    
+    return {
+      ...sec,
+      total: totalInSec,
+      owned: Math.round(totalOwnedInSecCommunity / activeCollectorsCount),
+      pct
+    };
+  });
+
+  const sortedCommunityTeamsByCompletion = [...communitySectionCompletion]
+    .filter(item => item.code !== 'COCA' && item.code !== 'FIFA')
+    .sort((a, b) => b.pct - a.pct);
+  const communityMostCompleteTeam = sortedCommunityTeamsByCompletion[0];
+
+  const sortedCommunityTeamsByUserMissing = [...communitySectionCompletion]
+    .filter(item => item.code !== 'COCA' && item.code !== 'FIFA')
+    .sort((a, b) => a.pct - b.pct);
+  const communityLeastCompleteTeam = sortedCommunityTeamsByUserMissing[0];
+
+  const communityGroupStats = Array.from(new Set(TEAMS.map(t => t.group))).map(groupName => {
+    const groupTeams = TEAMS.filter(t => t.group === groupName);
+    const groupStickers = STICKERS.filter(s => groupTeams.some(gt => gt.code === s.teamCode));
+    const totalInGroup = groupStickers.length;
+
+    const totalOwnedInGroupCommunity = groupStickers.reduce((acc, s) => {
+      const stats = communityStats[s.id] || { ownedCount: 0 };
+      return acc + stats.ownedCount;
+    }, 0);
+
+    const possibleSlots = totalInGroup * activeCollectorsCount;
+    const pct = possibleSlots > 0 ? Math.round((totalOwnedInGroupCommunity / possibleSlots) * 100) : 0;
+
+    return {
+      groupName,
+      ownedCount: Math.round(totalOwnedInGroupCommunity / activeCollectorsCount),
+      totalCount: totalInGroup,
+      pct
+    };
+  });
+
+  const sortedCommunityGroups = [...communityGroupStats].sort((a, b) => b.pct - a.pct);
+  const communityStrongestGroup = sortedCommunityGroups[0];
+  const communityWeakestGroup = sortedCommunityGroups[sortedCommunityGroups.length - 1];
 
   // Estatísticas globais da comunidade
   const globalTotalRepeated = allStickersRecords
@@ -825,7 +909,7 @@ export default function StatsDashboard({
             {/* Seleções em Destaque */}
             <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-4">
               <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-3">
-                <TrendingUp className="w-4 h-4 text-emerald-600" /> Histórico de Seleções (Seu Álbum)
+                <TrendingUp className="w-4 h-4 text-emerald-600" /> {subTab === 'meu_album' ? 'Histórico de Seleções (Seu Álbum)' : 'Histórico de Seleções (Panorama da Comunidade)'}
               </h3>
               
               <div className="space-y-4 py-1">
@@ -834,24 +918,47 @@ export default function StatsDashboard({
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
                     <span className="text-[10px] font-mono text-slate-450 uppercase tracking-wider block mb-1 font-bold">Mais Avançada</span>
-                    {mostCompleteTeam ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl shrink-0">{mostCompleteTeam.flagUrl}</span>
-                        <div>
-                          <span className="text-xs font-bold text-slate-800 block leading-tight">{mostCompleteTeam.name}</span>
-                          <span className="text-[10px] text-slate-500 font-semibold">{mostCompleteTeam.owned} de {mostCompleteTeam.total} coladas</span>
+                    {subTab === 'meu_album' ? (
+                      mostCompleteTeam ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl shrink-0">{mostCompleteTeam.flagUrl}</span>
+                          <div>
+                            <span className="text-xs font-bold text-slate-800 block leading-tight">{mostCompleteTeam.name}</span>
+                            <span className="text-[10px] text-slate-500 font-semibold">{mostCompleteTeam.owned} de {mostCompleteTeam.total} coladas</span>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-500 block">Nenhuma seleção cadastrada</span>
+                      )
                     ) : (
-                      <span className="text-xs font-semibold text-slate-500 block">Nenhuma seleção cadastrada</span>
+                      communityMostCompleteTeam ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl shrink-0">{communityMostCompleteTeam.flagUrl}</span>
+                          <div>
+                            <span className="text-xs font-bold text-slate-800 block leading-tight">{communityMostCompleteTeam.name}</span>
+                            <span className="text-[10px] text-slate-500 font-semibold">Média de {communityMostCompleteTeam.owned} de {communityMostCompleteTeam.total} coladas por usuário</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-500 block">Nenhuma seleção cadastrada</span>
+                      )
                     )}
                   </div>
                   
-                  {mostCompleteTeam && (
-                    <div className="text-right shrink-0">
-                      <span className="text-lg font-black text-emerald-600 block">{mostCompleteTeam.pct}%</span>
-                      <span className="text-[9px] text-slate-400 font-mono font-bold">CONCLUÍDO</span>
-                    </div>
+                  {subTab === 'meu_album' ? (
+                    mostCompleteTeam && (
+                      <div className="text-right shrink-0">
+                        <span className="text-lg font-black text-emerald-600 block">{mostCompleteTeam.pct}%</span>
+                        <span className="text-[9px] text-slate-400 font-mono font-bold">CONCLUÍDO</span>
+                      </div>
+                    )
+                  ) : (
+                    communityMostCompleteTeam && (
+                      <div className="text-right shrink-0">
+                        <span className="text-lg font-black text-emerald-600 block">{communityMostCompleteTeam.pct}%</span>
+                        <span className="text-[9px] text-slate-400 font-mono font-bold">MÉDIA GERAL</span>
+                      </div>
+                    )
                   )}
                 </div>
 
@@ -862,24 +969,47 @@ export default function StatsDashboard({
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
                     <span className="text-[10px] font-mono text-slate-450 uppercase tracking-wider block mb-1 font-bold">Mais Faltas</span>
-                    {leastCompleteTeam ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl shrink-0">{leastCompleteTeam.flagUrl}</span>
-                        <div>
-                          <span className="text-xs font-bold text-slate-800 block leading-tight">{leastCompleteTeam.name}</span>
-                          <span className="text-[10px] text-slate-500 font-semibold">{leastCompleteTeam.total - leastCompleteTeam.owned} figurinhas restantes</span>
+                    {subTab === 'meu_album' ? (
+                      leastCompleteTeam ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl shrink-0">{leastCompleteTeam.flagUrl}</span>
+                          <div>
+                            <span className="text-xs font-bold text-slate-800 block leading-tight">{leastCompleteTeam.name}</span>
+                            <span className="text-[10px] text-slate-500 font-semibold">{leastCompleteTeam.total - leastCompleteTeam.owned} figurinhas restantes</span>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-500 block">Nenhuma seleção cadastrada</span>
+                      )
                     ) : (
-                      <span className="text-xs font-semibold text-slate-500 block">Nenhuma seleção cadastrada</span>
+                      communityLeastCompleteTeam ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl shrink-0">{communityLeastCompleteTeam.flagUrl}</span>
+                          <div>
+                            <span className="text-xs font-bold text-slate-800 block leading-tight">{communityLeastCompleteTeam.name}</span>
+                            <span className="text-[10px] text-slate-500 font-semibold">Média de {communityLeastCompleteTeam.total - communityLeastCompleteTeam.owned} restantes por usuário</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-500 block">Nenhuma seleção cadastrada</span>
+                      )
                     )}
                   </div>
                   
-                  {leastCompleteTeam && (
-                    <div className="text-right shrink-0">
-                      <span className="text-lg font-black text-rose-500 block">{leastCompleteTeam.pct}%</span>
-                      <span className="text-[9px] text-slate-400 font-mono font-bold">CONCLUÍDO</span>
-                    </div>
+                  {subTab === 'meu_album' ? (
+                    leastCompleteTeam && (
+                      <div className="text-right shrink-0">
+                        <span className="text-lg font-black text-rose-500 block">{leastCompleteTeam.pct}%</span>
+                        <span className="text-[9px] text-slate-400 font-mono font-bold">CONCLUÍDO</span>
+                      </div>
+                    )
+                  ) : (
+                    communityLeastCompleteTeam && (
+                      <div className="text-right shrink-0">
+                        <span className="text-lg font-black text-rose-500 block">{communityLeastCompleteTeam.pct}%</span>
+                        <span className="text-[9px] text-slate-400 font-mono font-bold">MÉDIA GERAL</span>
+                      </div>
+                    )
                   )}
                 </div>
 
@@ -889,7 +1019,7 @@ export default function StatsDashboard({
             {/* Força dos Grupos */}
             <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-4">
               <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-3">
-                <HelpCircle className="w-4 h-4 text-emerald-600" /> Seus Grupos mais Fortes & Fracos
+                <HelpCircle className="w-4 h-4 text-emerald-600" /> {subTab === 'meu_album' ? 'Seus Grupos mais Fortes & Fracos' : 'Grupos mais Fortes & Fracos (Comunidade)'}
               </h3>
               
               <div className="space-y-4 py-1">
@@ -898,20 +1028,40 @@ export default function StatsDashboard({
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
                     <span className="text-[10px] font-mono text-slate-450 uppercase tracking-wider block mb-1 font-bold">Grupo Líder</span>
-                    {strongestGroup ? (
-                      <div>
-                        <span className="text-xs font-extrabold text-slate-800 block mb-0.5">{strongestGroup.groupName}</span>
-                        <span className="text-[10px] text-slate-500 font-semibold">{strongestGroup.ownedCount} de {strongestGroup.totalCount} figurinhas coladas</span>
-                      </div>
+                    {subTab === 'meu_album' ? (
+                      strongestGroup ? (
+                        <div>
+                          <span className="text-xs font-extrabold text-slate-800 block mb-0.5">{strongestGroup.groupName}</span>
+                          <span className="text-[10px] text-slate-500 font-semibold">{strongestGroup.ownedCount} de {strongestGroup.totalCount} figurinhas coladas</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-500 block">Nenhum</span>
+                      )
                     ) : (
-                      <span className="text-xs font-semibold text-slate-500 block">Nenhum</span>
+                      communityStrongestGroup ? (
+                        <div>
+                          <span className="text-xs font-extrabold text-slate-800 block mb-0.5">{communityStrongestGroup.groupName}</span>
+                          <span className="text-[10px] text-slate-500 font-semibold">Média de {communityStrongestGroup.ownedCount} de {communityStrongestGroup.totalCount} coladas por usuário</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-500 block">Nenhum</span>
+                      )
                     )}
                   </div>
-                  {strongestGroup && (
-                    <div className="text-right shrink-0">
-                      <span className="text-lg font-black text-emerald-600 block">{strongestGroup.pct}%</span>
-                      <span className="text-[9px] text-slate-400 font-mono font-bold">COMPLETO</span>
-                    </div>
+                  {subTab === 'meu_album' ? (
+                    strongestGroup && (
+                      <div className="text-right shrink-0">
+                        <span className="text-lg font-black text-emerald-600 block">{strongestGroup.pct}%</span>
+                        <span className="text-[9px] text-slate-400 font-mono font-bold">COMPLETO</span>
+                      </div>
+                    )
+                  ) : (
+                    communityStrongestGroup && (
+                      <div className="text-right shrink-0">
+                        <span className="text-lg font-black text-emerald-600 block">{communityStrongestGroup.pct}%</span>
+                        <span className="text-[9px] text-slate-400 font-mono font-bold">MÉDIA GERAL</span>
+                      </div>
+                    )
                   )}
                 </div>
 
@@ -922,20 +1072,40 @@ export default function StatsDashboard({
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
                     <span className="text-[10px] font-mono text-slate-450 uppercase tracking-wider block mb-1 font-bold">Grupo Lanterna</span>
-                    {weakestGroup ? (
-                      <div>
-                        <span className="text-xs font-extrabold text-slate-800 block mb-0.5">{weakestGroup.groupName}</span>
-                        <span className="text-[10px] text-slate-500 font-semibold">{weakestGroup.totalCount - weakestGroup.ownedCount} faltando</span>
-                      </div>
+                    {subTab === 'meu_album' ? (
+                      weakestGroup ? (
+                        <div>
+                          <span className="text-xs font-extrabold text-slate-800 block mb-0.5">{weakestGroup.groupName}</span>
+                          <span className="text-[10px] text-slate-500 font-semibold">{weakestGroup.totalCount - weakestGroup.ownedCount} faltando</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-500 block">Nenhum</span>
+                      )
                     ) : (
-                      <span className="text-xs font-semibold text-slate-500 block">Nenhum</span>
+                      communityWeakestGroup ? (
+                        <div>
+                          <span className="text-xs font-extrabold text-slate-800 block mb-0.5">{communityWeakestGroup.groupName}</span>
+                          <span className="text-[10px] text-slate-500 font-semibold">Média de {communityWeakestGroup.totalCount - communityWeakestGroup.ownedCount} faltando por usuário</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-500 block">Nenhum</span>
+                      )
                     )}
                   </div>
-                  {weakestGroup && (
-                    <div className="text-right shrink-0">
-                      <span className="text-lg font-black text-amber-500 block">{weakestGroup.pct}%</span>
-                      <span className="text-[9px] text-slate-400 font-mono font-bold">COMPLETO</span>
-                    </div>
+                  {subTab === 'meu_album' ? (
+                    weakestGroup && (
+                      <div className="text-right shrink-0">
+                        <span className="text-lg font-black text-amber-500 block">{weakestGroup.pct}%</span>
+                        <span className="text-[9px] text-slate-400 font-mono font-bold">COMPLETO</span>
+                      </div>
+                    )
+                  ) : (
+                    communityWeakestGroup && (
+                      <div className="text-right shrink-0">
+                        <span className="text-lg font-black text-amber-500 block">{communityWeakestGroup.pct}%</span>
+                        <span className="text-[9px] text-slate-400 font-mono font-bold">MÉDIA GERAL</span>
+                      </div>
+                    )
                   )}
                 </div>
 
