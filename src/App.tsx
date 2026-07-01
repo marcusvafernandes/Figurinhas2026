@@ -93,6 +93,18 @@ const getStickerPoints = (id: string): number => {
   return isStickerSpecial(id) ? 2 : 1;
 };
 
+const matchesStickerSearch = (stickerId: string, stickerName: string, searchText: string): boolean => {
+  if (!searchText.trim()) return true;
+  const q = searchText.toLowerCase().trim();
+  const qNormalized = q.replace(/\s+/g, '');
+  return (
+    stickerName.toLowerCase().includes(q) ||
+    stickerId.toLowerCase().includes(q) ||
+    stickerName.toLowerCase().replace(/\s+/g, '').includes(qNormalized) ||
+    stickerId.toLowerCase().replace(/\s+/g, '').includes(qNormalized)
+  );
+};
+
 const buildDoubleMatchWhatsappLink = (
   phone: string,
   partnerName: string,
@@ -1139,6 +1151,7 @@ export default function App() {
           // match Search Text
           if (searchText.trim()) {
             const q = searchText.toLowerCase().trim();
+            const qNormalized = q.replace(/\s+/g, '');
             const teamObj = TEAMS.find(t => t.code === s.teamCode);
             const teamName = teamObj ? teamObj.name.toLowerCase() : '';
             const teamCode = s.teamCode.toLowerCase();
@@ -1148,7 +1161,9 @@ export default function App() {
               teamName.includes(q) || 
               teamCode.includes(q) || 
               stickerName.includes(q) || 
-              stickerId.includes(q);
+              stickerId.includes(q) ||
+              stickerName.replace(/\s+/g, '').includes(qNormalized) ||
+              stickerId.replace(/\s+/g, '').includes(qNormalized);
             if (!matchesSearch) return false;
           }
           return true;
@@ -2457,11 +2472,14 @@ export default function App() {
 
     if (searchText.trim()) {
       const q = searchText.toLowerCase().trim();
+      const qNormalized = q.replace(/\s+/g, '');
       result = result.filter(s => {
         const team = TEAMS.find(t => t.code === s.teamCode);
         return (
           s.name.toLowerCase().includes(q) ||
           s.id.toLowerCase().includes(q) ||
+          s.name.toLowerCase().replace(/\s+/g, '').includes(qNormalized) ||
+          s.id.toLowerCase().replace(/\s+/g, '').includes(qNormalized) ||
           (team && team.name.toLowerCase().includes(q))
         );
       });
@@ -3396,9 +3414,15 @@ export default function App() {
                       })
                       .filter(item => {
                         if (!searchText.trim()) return true;
-                        return item.stickerId.toLowerCase().includes(searchText.toLowerCase()) || 
-                          item.originalSt?.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                          item.teamInfo?.name.toLowerCase().includes(searchText.toLowerCase());
+                        const q = searchText.toLowerCase().trim();
+                        const qNormalized = q.replace(/\s+/g, '');
+                        return item.stickerId.toLowerCase().includes(q) || 
+                          item.stickerId.toLowerCase().replace(/\s+/g, '').includes(qNormalized) ||
+                          (item.originalSt?.name && (
+                            item.originalSt.name.toLowerCase().includes(q) ||
+                            item.originalSt.name.toLowerCase().replace(/\s+/g, '').includes(qNormalized)
+                          )) ||
+                          (item.teamInfo?.name && item.teamInfo.name.toLowerCase().includes(q));
                       });
 
                     if (repeatedStickers.length === 0) {
@@ -3930,9 +3954,15 @@ export default function App() {
 
                   if (searchText.trim()) {
                     const q = searchText.toLowerCase().trim();
+                    const qNormalized = q.replace(/\s+/g, '');
                     visibleCategories = visibleCategories.filter(cat => {
                       const hasMatchingStickers = STICKERS.some(s => 
-                        s.teamCode === cat.code && s.name.toLowerCase().includes(q)
+                        s.teamCode === cat.code && (
+                          s.name.toLowerCase().includes(q) ||
+                          s.name.toLowerCase().replace(/\s+/g, '').includes(qNormalized) ||
+                          s.id.toLowerCase().includes(q) ||
+                          s.id.toLowerCase().replace(/\s+/g, '').includes(qNormalized)
+                        )
                       );
                       const nameMatches = cat.name.toLowerCase().includes(q) || cat.code.toLowerCase().includes(q);
                       return nameMatches || hasMatchingStickers;
@@ -4056,7 +4086,9 @@ export default function App() {
                                    const matchesSearchText = 
                                      !searchText.trim() ||
                                      sticker.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                                     sticker.id.toLowerCase().includes(searchText.toLowerCase());
+                                     sticker.id.toLowerCase().includes(searchText.toLowerCase()) ||
+                                     sticker.name.toLowerCase().replace(/\s+/g, '').includes(searchText.toLowerCase().replace(/\s+/g, '')) ||
+                                     sticker.id.toLowerCase().replace(/\s+/g, '').includes(searchText.toLowerCase().replace(/\s+/g, ''));
 
                                    const isDimmed = !matchesStatusFilter || !matchesSearchText;
                                    const isSelected = sticker.id === activeStickerId;
@@ -4119,7 +4151,7 @@ export default function App() {
                                    const matchesSearchText = 
                                      !searchText.trim() ||
                                      sticker.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                                     sticker.id.toLowerCase().includes(searchText.toLowerCase());
+                                     sticker.id.toLowerCase().includes(searchText.toLowerCase()) || sticker.id.toLowerCase().replace(/\s+/g, '').includes(searchText.toLowerCase().replace(/\s+/g, '')) || sticker.name.toLowerCase().replace(/\s+/g, '').includes(searchText.toLowerCase().replace(/\s+/g, ''));
 
                                    const isDimmed = !matchesStatusFilter || !matchesSearchText;
                                    const isSelected = sticker.id === activeStickerId;
