@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { onAuthStateChanged, signOut, updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword, EmailAuthProvider, reauthenticateWithCredential, updatePassword, deleteUser } from 'firebase/auth';
 import { 
   collection, 
@@ -105,6 +105,16 @@ const matchesStickerSearch = (stickerId: string, stickerName: string, searchText
   );
 };
 
+const sortStickerIds = (ids: string[]): string[] => {
+  return [...ids].sort((a, b) => {
+    let idxA = STICKERS.findIndex(s => s.id === a);
+    let idxB = STICKERS.findIndex(s => s.id === b);
+    if (idxA === -1) idxA = 9999;
+    if (idxB === -1) idxB = 9999;
+    return idxA - idxB;
+  });
+};
+
 const buildDoubleMatchWhatsappLink = (
   phone: string,
   partnerName: string,
@@ -114,12 +124,15 @@ const buildDoubleMatchWhatsappLink = (
   const cleanPhone = phone.replace(/\D/g, '');
   const withCountry = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
   
-  const mySpecials = myRepeated.filter(isStickerSpecial);
-  const myNormals = myRepeated.filter(id => !isStickerSpecial(id));
+  const sortedMyRepeated = sortStickerIds(myRepeated);
+  const sortedMyMissing = sortStickerIds(myMissing);
+
+  const mySpecials = sortedMyRepeated.filter(isStickerSpecial);
+  const myNormals = sortedMyRepeated.filter(id => !isStickerSpecial(id));
   const myPoints = mySpecials.length * 2 + myNormals.length;
   
-  const partnerSpecials = myMissing.filter(isStickerSpecial);
-  const partnerNormals = myMissing.filter(id => !isStickerSpecial(id));
+  const partnerSpecials = sortedMyMissing.filter(isStickerSpecial);
+  const partnerNormals = sortedMyMissing.filter(id => !isStickerSpecial(id));
   const partnerPoints = partnerSpecials.length * 2 + partnerNormals.length;
   
   let balanceMsg = "";
@@ -132,9 +145,9 @@ const buildDoubleMatchWhatsappLink = (
   }
 
   const text = `Olá ${partnerName}! Vi seu perfil no app *Figurinhas Copa 2026* e temos um *Match Perfeito* de trocas! 🤝\n\n` +
-    `🎁 *Eu te dou:* ${myRepeated.join(', ')}\n` +
+    `🎁 *Eu te dou:* ${sortedMyRepeated.join(', ')}\n` +
     `  ↳ ${myNormals.length} normal(is) e ${mySpecials.length} metalizada(s) (Total: ${myPoints} pts)\n\n` +
-    `⭐️ *Você me dá:* ${myMissing.join(', ')}\n` +
+    `⭐️ *Você me dá:* ${sortedMyMissing.join(', ')}\n` +
     `  ↳ ${partnerNormals.length} normal(is) e ${partnerSpecials.length} metalizada(s) (Total: ${partnerPoints} pts)\n\n` +
     `${balanceMsg}\n\n` +
     `Vamos combinar a troca?`;
@@ -147,32 +160,35 @@ const buildGeneralMatchText = (
   myRepeated: string[],
   myMissing: string[]
 ) => {
-  const mySpecials = myRepeated.filter(isStickerSpecial);
-  const myNormals = myRepeated.filter(id => !isStickerSpecial(id));
+  const sortedMyRepeated = sortStickerIds(myRepeated);
+  const sortedMyMissing = sortStickerIds(myMissing);
+
+  const mySpecials = sortedMyRepeated.filter(isStickerSpecial);
+  const myNormals = sortedMyRepeated.filter(id => !isStickerSpecial(id));
   const myPoints = mySpecials.length * 2 + myNormals.length;
 
-  const partnerSpecials = myMissing.filter(isStickerSpecial);
-  const partnerNormals = myMissing.filter(id => !isStickerSpecial(id));
+  const partnerSpecials = sortedMyMissing.filter(isStickerSpecial);
+  const partnerNormals = sortedMyMissing.filter(id => !isStickerSpecial(id));
   const partnerPoints = partnerSpecials.length * 2 + partnerNormals.length;
 
   let text = `🏆 *Figurinhas Copa 2026 - Oportunidade de Negociação* 🤝\n\n` +
     `Olá ${partnerName}! Vi seu perfil no app *Figurinhas Copa 2026* e reuni nossas figurinhas de interesse:\n\n`;
 
-  if (myRepeated.length > 0) {
-    text += `🎁 *Eu tenho repetida que você precisa:* ${myRepeated.join(', ')}\n` +
+  if (sortedMyRepeated.length > 0) {
+    text += `🎁 *Eu tenho repetida que você precisa:* ${sortedMyRepeated.join(', ')}\n` +
       `  ↳ ${myNormals.length} normal(is) e ${mySpecials.length} metalizada(s) (Total: ${myPoints} pts)\n\n`;
   } else {
     text += `🎁 *Eu tenho de repetida que você precisa:* Nenhuma no momento (estou aberto a compra/negociação).\n\n`;
   }
 
-  if (myMissing.length > 0) {
-    text += `⭐️ *Você tem de repetida que eu preciso:* ${myMissing.join(', ')}\n` +
+  if (sortedMyMissing.length > 0) {
+    text += `⭐️ *Você tem de repetida que eu preciso:* ${sortedMyMissing.join(', ')}\n` +
       `  ↳ ${partnerNormals.length} normal(is) e ${partnerSpecials.length} metalizada(s) (Total: ${partnerPoints} pts)\n\n`;
   } else {
     text += `⭐️ *Você tem de repetida que eu preciso:* Nenhuma no momento (estou aberto a venda/negociação).\n\n`;
   }
 
-  if (myRepeated.length > 0 && myMissing.length > 0) {
+  if (sortedMyRepeated.length > 0 && sortedMyMissing.length > 0) {
     let balanceMsg = "";
     if (myPoints === partnerPoints) {
       balanceMsg = "⚖️ Troca em perfeito equilíbrio de valor!";
@@ -230,12 +246,15 @@ const buildDoubleMatchEmailLink = (
   myRepeated: string[],
   myMissing: string[]
 ) => {
-  const mySpecials = myRepeated.filter(isStickerSpecial);
-  const myNormals = myRepeated.filter(id => !isStickerSpecial(id));
+  const sortedMyRepeated = sortStickerIds(myRepeated);
+  const sortedMyMissing = sortStickerIds(myMissing);
+
+  const mySpecials = sortedMyRepeated.filter(isStickerSpecial);
+  const myNormals = sortedMyRepeated.filter(id => !isStickerSpecial(id));
   const myPoints = mySpecials.length * 2 + myNormals.length;
   
-  const partnerSpecials = myMissing.filter(isStickerSpecial);
-  const partnerNormals = myMissing.filter(id => !isStickerSpecial(id));
+  const partnerSpecials = sortedMyMissing.filter(isStickerSpecial);
+  const partnerNormals = sortedMyMissing.filter(id => !isStickerSpecial(id));
   const partnerPoints = partnerSpecials.length * 2 + partnerNormals.length;
   
   let balanceMsg = "";
@@ -249,9 +268,9 @@ const buildDoubleMatchEmailLink = (
 
   const subject = `Match de Figurinhas da Copa 2026! 🤝`;
   const body = `Olá ${partnerName}!\n\nVi seu perfil no app de Figurinhas Copa 2026 e temos um Match Perfeito de trocas!\n\n` +
-    `🎁 Eu te dou: ${myRepeated.join(', ')}\n` +
+    `🎁 Eu te dou: ${sortedMyRepeated.join(', ')}\n` +
     `  ↳ ${myNormals.length} normal(is) e ${mySpecials.length} metalizada(s) (Total: ${myPoints} pts)\n\n` +
-    `⭐️ Você me dá: ${myMissing.join(', ')}\n` +
+    `⭐️ Você me dá: ${sortedMyMissing.join(', ')}\n` +
     `  ↳ ${partnerNormals.length} normal(is) e ${partnerSpecials.length} metalizada(s) (Total: ${partnerPoints} pts)\n\n` +
     `${balanceMsg}\n\n` +
     `Vamos combinar a troca?\n\n--\nEnviado através do aplicativo Figurinhas Copa 2026 (https://figurinhas2026-rust.vercel.app/)`;
@@ -265,32 +284,35 @@ const buildGeneralMatchEmailLink = (
   myRepeated: string[],
   myMissing: string[]
 ) => {
-  const mySpecials = myRepeated.filter(isStickerSpecial);
-  const myNormals = myRepeated.filter(id => !isStickerSpecial(id));
+  const sortedMyRepeated = sortStickerIds(myRepeated);
+  const sortedMyMissing = sortStickerIds(myMissing);
+
+  const mySpecials = sortedMyRepeated.filter(isStickerSpecial);
+  const myNormals = sortedMyRepeated.filter(id => !isStickerSpecial(id));
   const myPoints = mySpecials.length * 2 + myNormals.length;
 
-  const partnerSpecials = myMissing.filter(isStickerSpecial);
-  const partnerNormals = myMissing.filter(id => !isStickerSpecial(id));
+  const partnerSpecials = sortedMyMissing.filter(isStickerSpecial);
+  const partnerNormals = sortedMyMissing.filter(id => !isStickerSpecial(id));
   const partnerPoints = partnerSpecials.length * 2 + partnerNormals.length;
 
   const subject = `Oportunidade de Troca de Figurinhas - Copa 2026! 🤝`;
   let body = `Olá ${partnerName}!\n\nVi seu perfil no app de Figurinhas Copa 2026 e reuni nossas figurinhas de interesse:\n\n`;
 
-  if (myRepeated.length > 0) {
-    body += `🎁 Eu tenho repetida que você precisa: ${myRepeated.join(', ')}\n` +
+  if (sortedMyRepeated.length > 0) {
+    body += `🎁 Eu tenho repetida que você precisa: ${sortedMyRepeated.join(', ')}\n` +
       `  ↳ ${myNormals.length} normal(is) e ${mySpecials.length} metalizada(s) (Total: ${myPoints} pts)\n\n`;
   } else {
     body += `🎁 Eu tenho de repetida que você precisa: Nenhuma no momento (estou aberto a compra/negociação).\n\n`;
   }
 
-  if (myMissing.length > 0) {
-    body += `⭐️ Você tem de repetida que eu preciso: ${myMissing.join(', ')}\n` +
+  if (sortedMyMissing.length > 0) {
+    body += `⭐️ Você tem de repetida que eu preciso: ${sortedMyMissing.join(', ')}\n` +
       `  ↳ ${partnerNormals.length} normal(is) e ${partnerSpecials.length} metalizada(s) (Total: ${partnerPoints} pts)\n\n`;
   } else {
     body += `⭐️ Você tem de repetida que eu preciso: Nenhuma no momento (estou aberto a venda/negociação).\n\n`;
   }
 
-  if (myRepeated.length > 0 && myMissing.length > 0) {
+  if (sortedMyRepeated.length > 0 && sortedMyMissing.length > 0) {
     let balanceMsg = "";
     if (myPoints === partnerPoints) {
       balanceMsg = "Troca em perfeito equilíbrio de valor!";
@@ -357,6 +379,7 @@ const DEFAULT_DIEGO_STICKERS: Record<string, UserSticker> = {
 
 export default function App() {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [previousLastActiveAt, setPreviousLastActiveAt] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   
   // Real-time collections state
@@ -413,6 +436,20 @@ export default function App() {
       setTradeHistory([]);
     }
   }, [user]);
+
+  // Set settled to true 3.5 seconds after user login/mount to prevent initial race-condition false positives on perfect match toasts
+  useEffect(() => {
+    if (!user) {
+      isSettledRef.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      isSettledRef.current = true;
+    }, 3500);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [user?.uid]);
 
   const [bulkLoading, setBulkLoading] = useState(false);
   
@@ -487,12 +524,15 @@ export default function App() {
   };
 
   const handleShareTradeSummary = async (partnerName: string, myRepeated: string[], myMissing: string[]) => {
-    const mySpecials = myRepeated.filter(isStickerSpecial);
-    const myNormals = myRepeated.filter(id => !isStickerSpecial(id));
+    const sortedMyRepeated = sortStickerIds(myRepeated);
+    const sortedMyMissing = sortStickerIds(myMissing);
+
+    const mySpecials = sortedMyRepeated.filter(isStickerSpecial);
+    const myNormals = sortedMyRepeated.filter(id => !isStickerSpecial(id));
     const myPoints = mySpecials.length * 2 + myNormals.length;
     
-    const partnerSpecials = myMissing.filter(isStickerSpecial);
-    const partnerNormals = myMissing.filter(id => !isStickerSpecial(id));
+    const partnerSpecials = sortedMyMissing.filter(isStickerSpecial);
+    const partnerNormals = sortedMyMissing.filter(id => !isStickerSpecial(id));
     const partnerPoints = partnerSpecials.length * 2 + partnerNormals.length;
     
     let balanceMsg = "";
@@ -506,9 +546,9 @@ export default function App() {
 
     const text = `🏆 *Figurinhas Copa 2026 - Proposta de Troca* 🤝\n\n` +
       `Olá ${partnerName}! Vi seu perfil e temos um match perfeito de trocas:\n\n` +
-      `🎁 *Eu te dou:* ${myRepeated.join(', ')}\n` +
+      `🎁 *Eu te dou:* ${sortedMyRepeated.join(', ')}\n` +
       `  ↳ ${myNormals.length} normal(is) e ${mySpecials.length} metalizada(s) (Total: ${myPoints} pts)\n\n` +
-      `⭐️ *Você me dá:* ${myMissing.join(', ')}\n` +
+      `⭐️ *Você me dá:* ${sortedMyMissing.join(', ')}\n` +
       `  ↳ ${partnerNormals.length} normal(is) e ${partnerSpecials.length} metalizada(s) (Total: ${partnerPoints} pts)\n\n` +
       `${balanceMsg}\n\n` +
       `Combinamos de trocar?`;
@@ -564,6 +604,7 @@ export default function App() {
   const [adminNewName, setAdminNewName] = useState('');
   const [adminNewWhatsapp, setAdminNewWhatsapp] = useState('');
   const [adminNewEmail, setAdminNewEmail] = useState('');
+  const [adminNewInactivityDays, setAdminNewInactivityDays] = useState('0');
   const [adminChatSender, setAdminChatSender] = useState('demo_jimi_copa');
   const [adminChatMessageText, setAdminChatMessageText] = useState('');
 
@@ -578,6 +619,7 @@ export default function App() {
   const [statsSubTab, setStatsSubTab] = useState<'meu_album' | 'comunidade'>('meu_album');
   const [isImporting, setIsImporting] = useState(false);
   const prevDoubleMatchUidsRef = useRef<string[] | null>(null);
+  const isSettledRef = useRef<boolean>(false);
 
   // Checklist Print States
   const [showPrintChecklist, setShowPrintChecklist] = useState(false);
@@ -654,16 +696,31 @@ export default function App() {
         unsubUserDoc = onSnapshot(userDocRef, (snap) => {
           if (snap.exists()) {
             const data = snap.data();
+            const lastActiveAtFallback = data.lastActiveAt || (data.updatedAt && typeof data.updatedAt.toDate === 'function' ? data.updatedAt.toDate().toISOString() : '') || '';
+            const currentLastActiveAt = lastActiveAtFallback;
+            const fallbackCreated = data.createdAt?.toDate()?.toISOString() || new Date().toISOString();
+            
+            setPreviousLastActiveAt(prev => {
+              if (prev !== null) return prev;
+              return currentLastActiveAt || fallbackCreated;
+            });
+
             setUser({
               uid: data.uid,
               displayName: data.displayName,
               email: data.email,
               photoURL: data.photoURL,
               whatsapp: data.whatsapp,
-              createdAt: data.createdAt?.toDate()?.toISOString() || ''
+              createdAt: data.createdAt?.toDate()?.toISOString() || '',
+              lastActiveAt: lastActiveAtFallback
             });
           } else {
             // fallback
+            setPreviousLastActiveAt(prev => {
+              if (prev !== null) return prev;
+              return new Date().toISOString();
+            });
+
             setUser({
               uid: firebaseUser.uid,
               displayName: firebaseUser.displayName || 'Colecionador(a)',
@@ -681,6 +738,7 @@ export default function App() {
         });
       } else {
         setUser(null);
+        setPreviousLastActiveAt(null);
         setAuthLoading(false);
       }
     });
@@ -692,6 +750,32 @@ export default function App() {
       }
     };
   }, []);
+
+  // 1.5. Automatically track/update user lastActiveAt in Firestore
+  useEffect(() => {
+    if (!user || user.uid.startsWith('demo_') || user.uid.startsWith('custom_sim_')) return;
+    
+    // Guard against writing to Firestore if impersonating another user
+    if (!auth.currentUser || auth.currentUser.uid !== user.uid) return;
+    
+    const userDocRef = doc(db, 'users', user.uid);
+    
+    const lastUpdateKey = `copa_last_active_update_${user.uid}`;
+    const lastUpdate = localStorage.getItem(lastUpdateKey);
+    const oneHour = 60 * 60 * 1000;
+    
+    if (!lastUpdate || Date.now() - Number(lastUpdate) > oneHour) {
+      setDoc(userDocRef, { 
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+      .then(() => {
+        localStorage.setItem(lastUpdateKey, String(Date.now()));
+      })
+      .catch((err) => {
+        console.error("Failed to update lastActiveAt:", err);
+      });
+    }
+  }, [user?.uid]);
 
   // 2. Real-time sticker database state (only if authenticated)
   useEffect(() => {
@@ -781,9 +865,22 @@ export default function App() {
           email: data.email || '',
           photoURL: data.photoURL,
           whatsapp: data.whatsapp,
-          createdAt: ''
+          createdAt: typeof data.createdAt?.toDate === 'function'
+            ? data.createdAt.toDate().toISOString()
+            : (data.createdAt || ''),
+          lastActiveAt: data.lastActiveAt || (data.updatedAt && typeof data.updatedAt.toDate === 'function' ? data.updatedAt.toDate().toISOString() : '') || ''
         };
       });
+
+      // Merge custom simulated users from localStorage so they persist across snapshots!
+      const customUsersStr = localStorage.getItem('copa_custom_simulated_users');
+      if (customUsersStr) {
+        try {
+          const customUsers = JSON.parse(customUsersStr);
+          Object.assign(usersMap, customUsers);
+        } catch (e) {}
+      }
+
       setAllUsers(usersMap);
       
       // Dynamically cache public statistics counters for landing page
@@ -1766,6 +1863,7 @@ export default function App() {
 
   const handleImpersonate = (targetUser: UserProfile) => {
     setUser(targetUser);
+    setPreviousLastActiveAt(targetUser.lastActiveAt || targetUser.createdAt || new Date().toISOString());
     localStorage.setItem('copa_sticker_bypass_user', JSON.stringify(targetUser));
     setActiveTab('album');
     
@@ -1785,13 +1883,19 @@ export default function App() {
   const handleCreateCustomUser = () => {
     if (!adminNewName.trim() || !user) return;
     const newUid = `custom_sim_${Math.random().toString(36).substring(2, 9)}`;
+    
+    const inactivityDays = parseInt(adminNewInactivityDays, 10) || 0;
+    const lastActiveDate = new Date();
+    lastActiveDate.setDate(lastActiveDate.getDate() - inactivityDays);
+
     const newProfile: UserProfile = {
       uid: newUid,
       displayName: adminNewName.trim(),
       email: adminNewEmail.trim() || `${adminNewName.toLowerCase().replace(/\s+/g, '')}@sim.app`,
       whatsapp: adminNewWhatsapp.trim() || '11900000555',
       photoURL: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${newUid}`,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      lastActiveAt: lastActiveDate.toISOString()
     };
 
     const customUsersStr = localStorage.getItem('copa_custom_simulated_users');
@@ -1811,6 +1915,7 @@ export default function App() {
     setAdminNewName('');
     setAdminNewWhatsapp('');
     setAdminNewEmail('');
+    setAdminNewInactivityDays('0');
   };
 
   const handleSendSimulatedMessage = () => {
@@ -2252,88 +2357,116 @@ export default function App() {
 
   // 3. Compute Matches (Algoritmo Real de Trocas de Figurinhas)
   // Let's analyze.
-  // Other users' records
-  const partnerRecords = allStickersRecords.filter(r => r.userId !== user?.uid);
-  
-  // My missing sticker codes
-  const myMissingStickerIds = STICKERS.filter(s => !myStickers[s.id] || myStickers[s.id]?.status === 'missing').map(s => s.id);
-  // My repeated stickers codes
-  const myRepeatedStickerIds = STICKERS.filter(s => myStickers[s.id]?.status === 'repeated').map(s => s.id);
+  const { doubleMatchesList, singleMatchesList } = useMemo(() => {
+    const isUserActive = (uid: string): boolean => {
+      if (uid.startsWith('demo_')) return true;
+      
+      const u = allUsers[uid];
+      if (!u) return true; // Default to active if profile isn't found yet
+      
+      const activeDateStr = u.lastActiveAt || u.createdAt;
+      if (!activeDateStr) return true; // Default to active if no date exists
+      
+      try {
+        const lastActive = new Date(activeDateStr);
+        const diffTime = Date.now() - lastActive.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        return diffDays < 15;
+      } catch (e) {
+        console.error("Error calculating activity status:", e);
+        return true;
+      }
+    };
 
-  // Partners grouping by UID
-  const partnerRecordsByUid: Record<string, UserSticker[]> = {};
-  partnerRecords.forEach((rec) => {
-    if (!partnerRecordsByUid[rec.userId]) {
-      partnerRecordsByUid[rec.userId] = [];
+    if (!user) {
+      return { doubleMatchesList: [], singleMatchesList: [] };
     }
-    partnerRecordsByUid[rec.userId].push(rec);
-  });
 
-  // Calculate: Double Matches & Single Matches
-  const doubleMatchesList: DoubleMatch[] = [];
-  const singleMatchesList: SingleMatch[] = [];
+    // Other users' records
+    const partnerRecords = allStickersRecords.filter(r => r.userId !== user.uid && isUserActive(r.userId));
+    
+    // My missing sticker codes
+    const myMissingStickerIds = STICKERS.filter(s => !myStickers[s.id] || myStickers[s.id]?.status === 'missing').map(s => s.id);
+    // My repeated stickers codes
+    const myRepeatedStickerIds = STICKERS.filter(s => myStickers[s.id]?.status === 'repeated').map(s => s.id);
 
-  Object.entries(partnerRecordsByUid).forEach(([partnerId, records]) => {
-    const partnerProfile = allUsers[partnerId];
-    if (!partnerProfile) return;
-
-    const partnerStickerMap = records.reduce((acc, r) => {
-      acc[r.stickerId] = r;
-      return acc;
-    }, {} as Record<string, UserSticker>);
-
-    const partnerMissing = STICKERS.filter(s => {
-      const r = partnerStickerMap[s.id];
-      return !r || r.status === 'missing';
-    }).map(s => s.id);
-
-    const partnerRepeated = records.filter(r => r.status === 'repeated').map(r => r.stickerId);
-
-    // Single: They have what I miss
-    const theyHaveMyMissing = partnerRepeated.filter(id => myMissingStickerIds.includes(id));
-    // Single: I have what they miss
-    const iHaveTheirMissing = myRepeatedStickerIds.filter(id => partnerMissing.includes(id));
-
-    // Populate Single Match records
-    theyHaveMyMissing.forEach((sid) => {
-      const stk = STICKERS.find(s => s.id === sid);
-      singleMatchesList.push({
-        stickerId: sid,
-        stickerName: stk ? `${stk.teamCode} ${stk.number} - ${stk.name}` : sid,
-        partnerUid: partnerId,
-        partnerName: partnerProfile.displayName,
-        partnerWhatsapp: partnerProfile.whatsapp,
-        partnerEmail: partnerProfile.email,
-        type: 'he_has_my_missing'
-      });
+    // Partners grouping by UID
+    const partnerRecordsByUid: Record<string, UserSticker[]> = {};
+    partnerRecords.forEach((rec) => {
+      if (!partnerRecordsByUid[rec.userId]) {
+        partnerRecordsByUid[rec.userId] = [];
+      }
+      partnerRecordsByUid[rec.userId].push(rec);
     });
 
-    iHaveTheirMissing.forEach((sid) => {
-      const stk = STICKERS.find(s => s.id === sid);
-      singleMatchesList.push({
-        stickerId: sid,
-        stickerName: stk ? `${stk.teamCode} ${stk.number} - ${stk.name}` : sid,
-        partnerUid: partnerId,
-        partnerName: partnerProfile.displayName,
-        partnerWhatsapp: partnerProfile.whatsapp,
-        partnerEmail: partnerProfile.email,
-        type: 'i_have_his_missing'
+    // Calculate: Double Matches & Single Matches
+    const dMatches: DoubleMatch[] = [];
+    const sMatches: SingleMatch[] = [];
+
+    Object.entries(partnerRecordsByUid).forEach(([partnerId, records]) => {
+      const partnerProfile = allUsers[partnerId];
+      if (!partnerProfile) return;
+
+      const partnerStickerMap = records.reduce((acc, r) => {
+        acc[r.stickerId] = r;
+        return acc;
+      }, {} as Record<string, UserSticker>);
+
+      const partnerMissing = STICKERS.filter(s => {
+        const r = partnerStickerMap[s.id];
+        return !r || r.status === 'missing';
+      }).map(s => s.id);
+
+      const partnerRepeated = records.filter(r => r.status === 'repeated').map(r => r.stickerId);
+
+      // Single: They have what I miss
+      const theyHaveMyMissing = partnerRepeated.filter(id => myMissingStickerIds.includes(id));
+      // Single: I have what they miss
+      const iHaveTheirMissing = myRepeatedStickerIds.filter(id => partnerMissing.includes(id));
+
+      // Populate Single Match records
+      theyHaveMyMissing.forEach((sid) => {
+        const stk = STICKERS.find(s => s.id === sid);
+        sMatches.push({
+          stickerId: sid,
+          stickerName: stk ? `${stk.teamCode} ${stk.number} - ${stk.name}` : sid,
+          partnerUid: partnerId,
+          partnerName: partnerProfile.displayName,
+          partnerWhatsapp: partnerProfile.whatsapp,
+          partnerEmail: partnerProfile.email,
+          type: 'he_has_my_missing'
+        });
       });
+
+      iHaveTheirMissing.forEach((sid) => {
+        const stk = STICKERS.find(s => s.id === sid);
+        sMatches.push({
+          stickerId: sid,
+          stickerName: stk ? `${stk.teamCode} ${stk.number} - ${stk.name}` : sid,
+          partnerUid: partnerId,
+          partnerName: partnerProfile.displayName,
+          partnerWhatsapp: partnerProfile.whatsapp,
+          partnerEmail: partnerProfile.email,
+          type: 'i_have_his_missing'
+        });
+      });
+
+      // Double Match (Perfect match): 
+      // They have some of my missing AND I have some of their missing!
+      if (theyHaveMyMissing.length > 0 && iHaveTheirMissing.length > 0) {
+        dMatches.push({
+          partnerUid: partnerId,
+          partnerName: partnerProfile.displayName,
+          partnerWhatsapp: partnerProfile.whatsapp,
+          partnerEmail: partnerProfile.email,
+          myRepeated: sortStickerIds(iHaveTheirMissing), // what I give to them
+          myMissing: sortStickerIds(theyHaveMyMissing)   // what they give to me
+        });
+      }
     });
 
-    // Double Match (Perfect match): 
-    // They have some of my missing AND I have some of their missing!
-    if (theyHaveMyMissing.length > 0 && iHaveTheirMissing.length > 0) {
-      doubleMatchesList.push({
-        partnerUid: partnerId,
-        partnerName: partnerProfile.displayName,
-        partnerWhatsapp: partnerProfile.whatsapp,
-        partnerEmail: partnerProfile.email,
-        myRepeated: iHaveTheirMissing, // what I give to them
-        myMissing: theyHaveMyMissing   // what they give to me
-      });
-    }
-  });
+    return { doubleMatchesList: dMatches, singleMatchesList: sMatches };
+  }, [allUsers, allStickersRecords, myStickers, user?.uid]);
 
   // Real-time tracking of new perfect matches
   const doubleMatchPartnerIds = doubleMatchesList.map(m => m.partnerUid).sort().join(',');
@@ -2359,7 +2492,7 @@ export default function App() {
     // Find if there is any partnerUid in currentPartnerIds that WAS NOT in prevDoubleMatchUidsRef.current
     const newMatches = doubleMatchesList.filter(m => !prevDoubleMatchUidsRef.current!.includes(m.partnerUid));
 
-    if (newMatches.length > 0) {
+    if (newMatches.length > 0 && isSettledRef.current) {
       newMatches.forEach((match) => {
         const toastId = Math.random().toString(36).substring(2, 9);
         const newToast: ToastNotification = {
@@ -5068,6 +5201,126 @@ export default function App() {
                 <p className="text-xs text-slate-500 mt-1 font-medium">Configure suas informações de contato para que outros trocadores possam falar diretamente com você.</p>
               </div>
 
+              {(() => {
+                const getInactiveDays = (dateStr: string): number => {
+                  try {
+                    const date = new Date(dateStr);
+                    const diffTime = Date.now() - date.getTime();
+                    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                  } catch (e) {
+                    return 0;
+                  }
+                };
+
+                const inactiveDays = previousLastActiveAt ? getInactiveDays(previousLastActiveAt) : 0;
+                const isNearInactivity = inactiveDays >= 12;
+
+                if (!isNearInactivity) return null;
+
+                const daysLeft = 15 - inactiveDays;
+                const isCompletelyInactive = inactiveDays >= 15;
+
+                return (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`p-4 rounded-xl border ${
+                      isCompletelyInactive 
+                        ? 'bg-rose-50 border-rose-200 text-rose-800' 
+                        : 'bg-amber-50 border-amber-200 text-amber-800'
+                    } flex flex-col gap-3 shadow-sm max-w-md`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className={`w-5 h-5 shrink-0 ${
+                        isCompletelyInactive ? 'text-rose-600' : 'text-amber-600'
+                      }`} />
+                      <div>
+                        <h4 className="font-extrabold text-xs">
+                          {isCompletelyInactive 
+                            ? 'Aviso: Perfil Inativo no Sistema! 🛑' 
+                            : 'Alerta: Perfil Próximo de Inatividade! ⚠️'
+                          }
+                        </h4>
+                        <p className="text-[11px] mt-1 font-semibold leading-relaxed">
+                          {isCompletelyInactive 
+                            ? `Você ficou ${inactiveDays} dias sem atividade no aplicativo. Seu perfil foi ocultado das buscas de matches de outros colecionadores.` 
+                            : `Você está há ${inactiveDays} dias sem atualizar sua atividade recente. Faltam apenas ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'} para que seu perfil seja considerado inativo e ocultado de novos matches de trocas.`
+                          }
+                        </p>
+                        <p className="text-[10px] mt-1 opacity-85 font-medium">
+                          Para manter seu perfil em destaque e continuar aparecendo na lista de matches de trocas automáticas, faça alguma ação no aplicativo ou confirme sua presença.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 pt-1 border-t border-dashed border-current/10">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!user) return;
+                          const nowStr = new Date().toISOString();
+                          try {
+                            const isLocalOrImpersonated = user.uid.startsWith('demo_') || 
+                                                          user.uid.startsWith('custom_sim_') || 
+                                                          !auth.currentUser || 
+                                                          auth.currentUser.uid !== user.uid;
+                            if (isLocalOrImpersonated) {
+                              const updatedUser = { ...user, lastActiveAt: nowStr };
+                              setUser(updatedUser);
+                              setPreviousLastActiveAt(nowStr);
+                              localStorage.setItem('copa_sticker_bypass_user', JSON.stringify(updatedUser));
+                              setAllUsers(prev => ({ ...prev, [user.uid]: updatedUser }));
+                            } else {
+                              const userDocRef = doc(db, 'users', user.uid);
+                              await setDoc(userDocRef, { updatedAt: serverTimestamp() }, { merge: true });
+                              setPreviousLastActiveAt(nowStr);
+                            }
+                            triggerNotification(
+                              "Presença Confirmada! ⚡", 
+                              "Sua atividade foi renovada por mais 15 dias de matches perfeitos!"
+                            );
+                          } catch (e) {
+                            console.error(e);
+                            triggerNotification("Erro ao renovar ❌", "Ocorreu um problema ao salvar sua nova atividade.");
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-[10.5px] font-extrabold transition shadow-sm cursor-pointer ${
+                          isCompletelyInactive 
+                            ? 'bg-rose-600 hover:bg-rose-500 text-white' 
+                            : 'bg-amber-600 hover:bg-amber-500 text-white'
+                        }`}
+                      >
+                        Renovar Atividade Agora ⚡
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('album')}
+                        className={`px-3 py-1.5 rounded-lg text-[10.5px] font-extrabold transition border cursor-pointer ${
+                          isCompletelyInactive 
+                            ? 'border-rose-300 hover:bg-rose-100/50 text-rose-800' 
+                            : 'border-amber-300 hover:bg-amber-100/50 text-amber-800'
+                        }`}
+                      >
+                        Ir para o Álbum 📖
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('matches')}
+                        className={`px-3 py-1.5 rounded-lg text-[10.5px] font-extrabold transition border cursor-pointer ${
+                          isCompletelyInactive 
+                            ? 'border-rose-300 hover:bg-rose-100/50 text-rose-800' 
+                            : 'border-amber-300 hover:bg-amber-100/50 text-amber-800'
+                        }`}
+                      >
+                        Matches de Troca 🤝
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })()}
+
               <div className="max-w-md space-y-4">
                 
                 {/* Visual Avatar */}
@@ -5474,6 +5727,26 @@ export default function App() {
                         } catch(e){}
                       }
 
+                      // Activity badge calculation
+                      const activeDateStr = u.lastActiveAt || u.createdAt;
+                      let daysInactive = 0;
+                      let activeLabel = 'Ativo';
+                      let isActive = true;
+                      
+                      if (activeDateStr && !u.uid.startsWith('demo_')) {
+                        try {
+                          const lastActive = new Date(activeDateStr);
+                          const diffTime = Date.now() - lastActive.getTime();
+                          daysInactive = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                          if (daysInactive >= 15) {
+                            isActive = false;
+                            activeLabel = `Inativo (${daysInactive} dias)`;
+                          } else if (daysInactive > 0) {
+                            activeLabel = `Ativo (${daysInactive}d atrás)`;
+                          }
+                        } catch (e) {}
+                      }
+
                       return (
                         <div key={u.uid} className="flex items-center justify-between gap-3 p-2 bg-slate-50 border border-slate-200 rounded-xl hover:border-slate-300 transition">
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -5483,10 +5756,14 @@ export default function App() {
                               className="w-8 h-8 rounded-lg bg-emerald-100/50 border border-slate-200 shrink-0"
                             />
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-800 truncate flex items-center gap-1">
+                              <p className="text-xs font-bold text-slate-800 truncate flex items-center gap-1.5 flex-wrap">
                                 {u.displayName}
-                                {isMe && (
-                                  <span className="text-[8px] bg-emerald-100 text-emerald-800 px-1 rounded border border-emerald-250 font-normal">Ativo</span>
+                                {isMe ? (
+                                  <span className="text-[8px] bg-emerald-100 text-emerald-800 px-1 rounded border border-emerald-250 font-normal">Você</span>
+                                ) : isActive ? (
+                                  <span className="text-[8px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200 font-bold uppercase tracking-wider">{activeLabel}</span>
+                                ) : (
+                                  <span className="text-[8px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border border-rose-200 font-bold uppercase tracking-wider">{activeLabel}</span>
                                 )}
                               </p>
                               <p className="text-[9.5px] text-slate-500 font-medium truncate">{u.whatsapp || 'Sem WhatsApp'}</p>
@@ -5540,7 +5817,7 @@ export default function App() {
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[9px] font-mono font-bold text-slate-550 mb-0.5">EMAIL (OPCIONAL)</label>
                         <input 
@@ -5548,6 +5825,17 @@ export default function App() {
                           value={adminNewEmail}
                           onChange={(e) => setAdminNewEmail(e.target.value)}
                           placeholder="ayrton@copa2026.app"
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-amber-550"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-mono font-bold text-slate-550 mb-0.5">DIAS DE INATIVIDADE (OPCIONAL)</label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={adminNewInactivityDays}
+                          onChange={(e) => setAdminNewInactivityDays(e.target.value)}
+                          placeholder="Ex: 0 para Ativo, 16 para Inativo"
                           className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-amber-550"
                         />
                       </div>

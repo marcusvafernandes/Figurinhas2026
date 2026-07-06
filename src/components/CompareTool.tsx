@@ -75,6 +75,10 @@ export default function CompareTool({ myStickers }: CompareToolProps) {
       // I have repeated copies of it
       return myState && myState.status === 'repeated' && (myState.quantity || 1) > 0;
     }
+  }).sort((a, b) => {
+    const idxA = STICKERS.findIndex(s => s.id === a.id);
+    const idxB = STICKERS.findIndex(s => s.id === b.id);
+    return idxA - idxB;
   });
 
   // Pre-fill sample text to help user understand how it works

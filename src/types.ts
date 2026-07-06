@@ -10,6 +10,7 @@ export interface UserProfile {
   photoURL?: string;
   whatsapp?: string;
   createdAt: string;
+  lastActiveAt?: string;
 }
 
 export type StickerStatus = 'missing' | 'repeated' | 'owned';

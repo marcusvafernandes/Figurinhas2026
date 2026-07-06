@@ -33,7 +33,8 @@ service cloud.firestore {
         && data.displayName is string && data.displayName.size() <= 100
         && data.email is string && data.email.size() <= 150
         && data.createdAt is timestamp
-        && (!data.keys().contains('whatsapp') || (data.whatsapp is string && data.whatsapp.size() <= 30));
+        && (!data.keys().contains('whatsapp') || (data.whatsapp is string && data.whatsapp.size() <= 30))
+        && (!data.keys().contains('lastActiveAt') || (data.lastActiveAt is string && data.lastActiveAt.size() <= 100));
     }
 
     function isValidUserSticker(data) {
@@ -72,7 +73,7 @@ service cloud.firestore {
       allow list: if true;
       allow create: if isSignedIn() && (request.auth.uid == userId || userId.matches('^demo_.*')) && isValidUser(incoming());
       allow update: if isSignedIn() && (request.auth.uid == userId || userId.matches('^demo_.*')) && isValidUser(incoming())
-        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'whatsapp', 'updatedAt']);
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'whatsapp', 'updatedAt', 'lastActiveAt']);
       allow delete: if isSignedIn() && userId.matches('^demo_.*');
     }
 
