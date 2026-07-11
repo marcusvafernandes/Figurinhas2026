@@ -1,1 +1,246 @@
 @import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-emerald-50: var(--brand-50);
+  --color-emerald-100: var(--brand-100);
+  --color-emerald-200: var(--brand-200);
+  --color-emerald-300: var(--brand-300);
+  --color-emerald-400: var(--brand-400);
+  --color-emerald-500: var(--brand-500);
+  --color-emerald-600: var(--brand-600);
+  --color-emerald-700: var(--brand-700);
+  --color-emerald-800: var(--brand-800);
+  --color-emerald-900: var(--brand-900);
+  --color-emerald-950: var(--brand-950);
+}
+
+:root {
+  /* Default emerald light */
+  --brand-50: #ecfdf5;
+  --brand-100: #d1fae5;
+  --brand-200: #a7f3d0;
+  --brand-300: #6ee7b7;
+  --brand-400: #34d399;
+  --brand-500: #10b981;
+  --brand-600: #059669;
+  --brand-700: #047857;
+  --brand-800: #065f46;
+  --brand-900: #064e3b;
+  --brand-950: #022c22;
+  
+  --grad-start: #f0f9ff;
+  --grad-via: #ecfdf5;
+  --grad-end: #fef3c7;
+}
+
+/* Base style for custom gradient */
+.bg-brand-gradient {
+  background-image: linear-gradient(to top right, var(--grad-start), var(--grad-via), var(--grad-end));
+}
+
+/* ==========================================================================
+   THEME: EMERALD (VERDE AMAZÔNIA)
+   ========================================================================== */
+.theme-emerald {
+  --brand-50: #ecfdf5;
+  --brand-100: #d1fae5;
+  --brand-200: #a7f3d0;
+  --brand-300: #6ee7b7;
+  --brand-400: #34d399;
+  --brand-500: #10b981;
+  --brand-600: #059669;
+  --brand-700: #047857;
+  --brand-800: #065f46;
+  --brand-900: #064e3b;
+  --brand-950: #022c22;
+  
+  --grad-start: #f0f9ff;
+  --grad-via: #ecfdf5;
+  --grad-end: #fef3c7;
+}
+
+/* Dark mode variations for Emerald */
+.dark.theme-emerald, .dark .theme-emerald {
+  --brand-50: #022c22;
+  --brand-100: #044e3b;
+  --brand-200: #10b981;
+  --brand-300: #34d399;
+  --brand-400: #6ee7b7;
+  --brand-500: #10b981;
+  --brand-600: #059669;
+  --brand-700: #047857;
+  --brand-800: #065f46;
+  --brand-900: #011f18;
+  --brand-950: #01120e;
+  
+  /* Rich, deep forest dark green background gradient for dark mode */
+  --grad-start: #02120e;
+  --grad-via: #010a08;
+  --grad-end: #030a07;
+}
+
+/* ==========================================================================
+   THEME: BLUE (AZUL CAMPEÃO)
+   ========================================================================== */
+.theme-blue {
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+  --brand-950: #172554;
+  
+  --grad-start: #eff6ff;
+  --grad-via: #e0e7ff;
+  --grad-end: #f0f9ff;
+}
+
+/* Dark mode variations for Blue */
+.dark.theme-blue, .dark .theme-blue {
+  --brand-50: #172554;
+  --brand-100: #1e3a8a;
+  --brand-200: #60a5fa;
+  --brand-300: #93c5fd;
+  --brand-400: #bfdbfe;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #0c1530;
+  --brand-950: #060a1a;
+  
+  /* Rich, immersive dark navy background gradient for dark mode */
+  --grad-start: #030f24;
+  --grad-via: #010714;
+  --grad-end: #020712;
+}
+
+/* ==========================================================================
+   THEME: AMBER (AMARELO OURO)
+   ========================================================================== */
+.theme-amber {
+  --brand-50: #fffbeb;
+  --brand-100: #fef3c7;
+  --brand-200: #fde68a;
+  --brand-300: #fcd34d;
+  --brand-400: #fbbf24;
+  --brand-500: #f59e0b;
+  --brand-600: #d97706;
+  --brand-700: #b45309;
+  --brand-800: #92400e;
+  --brand-900: #78350f;
+  --brand-950: #451a03;
+  
+  --grad-start: #fffbeb;
+  --grad-via: #fef3c7;
+  --grad-end: #ffedd5;
+}
+
+/* Dark mode variations for Amber */
+.dark.theme-amber, .dark .theme-amber {
+  --brand-50: #451a03;
+  --brand-100: #78350f;
+  --brand-200: #fcd34d;
+  --brand-300: #fbbf24;
+  --brand-400: #fde68a;
+  --brand-500: #f59e0b;
+  --brand-600: #d97706;
+  --brand-700: #b45309;
+  --brand-800: #92400e;
+  --brand-900: #2b1102;
+  --brand-950: #140801;
+  
+  /* Warm, rich dark gold/bronze background gradient for dark mode */
+  --grad-start: #120901;
+  --grad-via: #0a0501;
+  --grad-end: #050200;
+}
+
+/* ==========================================================================
+   THEME: ROSE (VERMELHO FÚRIA)
+   ========================================================================== */
+.theme-rose {
+  --brand-50: #fff1f2;
+  --brand-100: #ffe4e6;
+  --brand-200: #fecdd3;
+  --brand-300: #fda4af;
+  --brand-400: #fb7185;
+  --brand-500: #f43f5e;
+  --brand-600: #e11d48;
+  --brand-700: #be123c;
+  --brand-800: #9f1239;
+  --brand-900: #881337;
+  --brand-950: #4c0519;
+  
+  --grad-start: #fff1f2;
+  --grad-via: #fce7f3;
+  --grad-end: #fffbeb;
+}
+
+/* Dark mode variations for Rose */
+.dark.theme-rose, .dark .theme-rose {
+  --brand-50: #4c0519;
+  --brand-100: #881337;
+  --brand-200: #fda4af;
+  --brand-300: #fb7185;
+  --brand-400: #fecdd3;
+  --brand-500: #f43f5e;
+  --brand-600: #e11d48;
+  --brand-700: #be123c;
+  --brand-800: #9f1239;
+  --brand-900: #30020d;
+  --brand-950: #170106;
+  
+  /* Intense, deep crimson background gradient for dark mode */
+  --grad-start: #140206;
+  --grad-via: #0a0103;
+  --grad-end: #050001;
+}
+
+/* ==========================================================================
+   THEME: PURPLE (ROXO REALEZA)
+   ========================================================================== */
+.theme-purple {
+  --brand-50: #faf5ff;
+  --brand-100: #f3e8ff;
+  --brand-200: #e9d5ff;
+  --brand-300: #d8b4fe;
+  --brand-400: #c084fc;
+  --brand-500: #a855f7;
+  --brand-600: #9333ea;
+  --brand-700: #7e22ce;
+  --brand-800: #6b21a8;
+  --brand-900: #581c87;
+  --brand-950: #3b0764;
+  
+  --grad-start: #faf5ff;
+  --grad-via: #fae8ff;
+  --grad-end: #e0e7ff;
+}
+
+/* Dark mode variations for Purple */
+.dark.theme-purple, .dark .theme-purple {
+  --brand-50: #3b0764;
+  --brand-100: #581c87;
+  --brand-200: #d8b4fe;
+  --brand-300: #c084fc;
+  --brand-400: #e9d5ff;
+  --brand-500: #a855f7;
+  --brand-600: #9333ea;
+  --brand-700: #7e22ce;
+  --brand-800: #6b21a8;
+  --brand-900: #250340;
+  --brand-950: #11011e;
+  
+  /* Luxurious deep purple/midnight background gradient for dark mode */
+  --grad-start: #0e0217;
+  --grad-via: #07010c;
+  --grad-end: #040007;
+}

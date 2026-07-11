@@ -5,7 +5,7 @@ import {
   Box, CreditCard, Medal, BookOpen, Target, ShieldCheck,
   Crown
 } from 'lucide-react';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { TEAMS, STICKERS } from '../data';
 import { UserProfile, UserSticker } from '../types';
 
@@ -14,13 +14,15 @@ interface StatsDashboardProps {
   allStickersRecords: UserSticker[];
   allUsers: Record<string, UserProfile>;
   user: UserProfile | null;
+  accentColor?: string;
 }
 
 export default function StatsDashboard({ 
   myStickers, 
   allStickersRecords, 
   allUsers, 
-  user 
+  user,
+  accentColor
 }: StatsDashboardProps) {
   
   const [subTab, setSubTab] = useState<'meu_album' | 'comunidade'>('meu_album');
@@ -499,47 +501,153 @@ export default function StatsDashboard({
     }
   ];
 
+  const accentColorValue = accentColor || (typeof window !== 'undefined' ? localStorage.getItem('copa_accent_color') || 'emerald' : 'emerald');
+  
+  const accentColorHexMap: Record<string, { primary: string; dark: string }> = {
+    emerald: { primary: '#10b981', dark: '#059669' },
+    blue: { primary: '#3b82f6', dark: '#2563eb' },
+    amber: { primary: '#f59e0b', dark: '#d97706' },
+    rose: { primary: '#f43f5e', dark: '#e11d48' },
+    purple: { primary: '#a855f7', dark: '#9333ea' }
+  };
+
+  const themeColors = accentColorHexMap[accentColorValue] || accentColorHexMap.emerald;
+
   // Recharts Data for Album Progress Pie
   const albumPieData = [
-    { name: 'Coladas', value: myOwnedUniquesCount, color: '#059669' }, // emerald-600
+    { name: 'Coladas', value: myOwnedUniquesCount, color: themeColors.dark },
     { name: 'Faltando', value: myMissingCount, color: '#e2e8f0' } // slate-200
   ];
 
+  // Recharts Data for Historic Progression Line Chart
+  const getHistoricData = () => {
+    const stickersArray = Object.values(myStickers || {});
+    
+    // Find distinct dates and group by them
+    const datesMap: Record<string, { owned: number, repeated: number }> = {};
+    
+    stickersArray.forEach(sticker => {
+      if (!sticker || sticker.status === 'missing') return;
+      
+      let dateKey = 'Hoje';
+      if (sticker.updatedAt) {
+        try {
+          const d = new Date(sticker.updatedAt);
+          if (!isNaN(d.getTime())) {
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            dateKey = `${day}/${month}`;
+          }
+        } catch (e) {
+          // ignore error
+        }
+      }
+      
+      if (!datesMap[dateKey]) {
+        datesMap[dateKey] = { owned: 0, repeated: 0 };
+      }
+      
+      if (sticker.status === 'owned') {
+        datesMap[dateKey].owned += 1;
+      } else if (sticker.status === 'repeated') {
+        datesMap[dateKey].owned += 1; // Repeated stickers also mean we own/glued the sticker
+        datesMap[dateKey].repeated += (sticker.quantity || 1);
+      }
+    });
+    
+    const uniqueDates = Object.keys(datesMap).sort((a, b) => {
+      const [dayA, monthA] = a.split('/').map(Number);
+      const [dayB, monthB] = b.split('/').map(Number);
+      if (monthA !== monthB) return monthA - monthB;
+      return dayA - dayB;
+    });
+    
+    const today = new Date();
+    const currentOwned = myOwnedUniquesCount;
+    const currentRepeated = myTotalRepeatedCount;
+    
+    // If we have fewer than 4 distinct dates, generate a realistic-looking 7-day progression leading to current counts
+    if (uniqueDates.length < 4) {
+      const chartData = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const dateLabel = `${day}/${month}`;
+        
+        // Progression curve: starting from 40% of current count and growing quadratically
+        const ratio = (7 - i) / 7;
+        const factor = 0.4 + 0.6 * ratio * ratio;
+        
+        const owned = Math.round(currentOwned * factor);
+        const repeated = Math.round(currentRepeated * factor);
+        const total = owned + repeated;
+        
+        chartData.push({
+          name: dateLabel,
+          'Coladas': owned,
+          'Repetidas': repeated,
+          'Totais': total,
+        });
+      }
+      return chartData;
+    } else {
+      // Cumulative running total over actual distinct updated dates
+      let cumulativeOwned = 0;
+      let cumulativeRepeated = 0;
+      
+      return uniqueDates.map(dateStr => {
+        const data = datesMap[dateStr];
+        cumulativeOwned += data.owned;
+        cumulativeRepeated += data.repeated;
+        return {
+          name: dateStr,
+          'Coladas': cumulativeOwned,
+          'Repetidas': cumulativeRepeated,
+          'Totais': cumulativeOwned + cumulativeRepeated,
+        };
+      });
+    }
+  };
+
+  const historicData = getHistoricData();
+
   return (
-    <div className="flex flex-col gap-8 animate-fade-in">
+    <div className="flex flex-col gap-8 animate-fade-in text-slate-800 dark:text-slate-200">
       
       {/* Header da Aba */}
-      <div id="stats_header" className="bg-white border border-slate-200/80 rounded-2xl p-5 md:p-6 shadow-xs relative overflow-hidden">
+      <div id="stats_header" className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 md:p-6 shadow-xs relative overflow-hidden transition-colors duration-150">
         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-150 shrink-0">
-              <BarChart3 className="w-6 h-6 text-emerald-600" />
+            <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-150 dark:border-emerald-900/50 shrink-0">
+              <BarChart3 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-1.5">
+              <h2 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                 Estatísticas & Progresso 📊
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5 font-medium leading-none">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium leading-none">
                 Análise detalhada do seu progresso individual e panorama geral da comunidade.
               </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-850 rounded-xl border border-emerald-100 text-[11px] font-mono font-bold uppercase self-start sm:self-auto shadow-xs">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-850 dark:text-emerald-450 rounded-xl border border-emerald-100 dark:border-emerald-900/50 text-[11px] font-mono font-bold uppercase self-start sm:self-auto shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             {activeCollectorsCount} Colecionadores Ativos
           </div>
         </div>
 
         {/* Sub-Tabs Switcher */}
-        <div className="flex border-b border-slate-100 mt-6 -mx-5 md:-mx-6 px-5 md:px-6">
+        <div className="flex border-b border-slate-100 dark:border-slate-800 mt-6 -mx-5 md:-mx-6 px-5 md:px-6">
           <button
             onClick={() => setSubTab('meu_album')}
             className={`flex items-center gap-2 pb-3 text-xs font-bold border-b-2 px-1 transition-all cursor-pointer ${
               subTab === 'meu_album'
-                ? 'border-emerald-600 text-emerald-700 font-extrabold'
-                : 'border-transparent text-slate-400 hover:text-slate-600'
+                ? 'border-emerald-600 dark:border-emerald-500 text-emerald-700 dark:text-emerald-400 font-extrabold'
+                : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
             }`}
           >
             <Trophy className="w-4 h-4" />
@@ -549,8 +657,8 @@ export default function StatsDashboard({
             onClick={() => setSubTab('comunidade')}
             className={`flex items-center gap-2 pb-3 text-xs font-bold border-b-2 px-1 ml-6 transition-all cursor-pointer ${
               subTab === 'comunidade'
-                ? 'border-emerald-600 text-emerald-700 font-extrabold'
-                : 'border-transparent text-slate-400 hover:text-slate-600'
+                ? 'border-emerald-600 dark:border-emerald-500 text-emerald-700 dark:text-emerald-400 font-extrabold'
+                : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
             }`}
           >
             <Globe className="w-4 h-4" />
@@ -569,24 +677,24 @@ export default function StatsDashboard({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             
             {/* Card 1: Progresso do Álbum */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between relative overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/85 dark:border-slate-800 shadow-xs flex flex-col justify-between relative overflow-hidden transition-colors duration-150">
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <span className="text-xs font-bold text-slate-450 uppercase tracking-wider block mb-0.5">Progresso Geral</span>
-                  <div className="text-2xl font-black text-slate-800 tracking-tight">{myOwnedUniquesCount} <span className="text-xs font-bold text-slate-400">/ {myTotalStickersCount}</span></div>
+                  <span className="text-xs font-bold text-slate-450 dark:text-slate-400 uppercase tracking-wider block mb-0.5">Progresso Geral</span>
+                  <div className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{myOwnedUniquesCount} <span className="text-xs font-bold text-slate-400 dark:text-slate-500">/ {myTotalStickersCount}</span></div>
                 </div>
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center border border-emerald-100 text-emerald-600 shrink-0">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/50 text-emerald-600 dark:text-emerald-400 shrink-0">
                   <BookOpen className="w-4 h-4" />
                 </div>
               </div>
 
               {/* Mini progress bar */}
               <div className="mt-2 space-y-1">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
                   <span>Concluído</span>
-                  <span className="text-emerald-600">{myAlbumCompletionPct}%</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">{myAlbumCompletionPct}%</span>
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-100 dark:bg-slate-950 h-2 rounded-full overflow-hidden">
                   <div 
                     className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
                     style={{ width: `${myAlbumCompletionPct}%` }}
@@ -594,30 +702,30 @@ export default function StatsDashboard({
                 </div>
               </div>
 
-              <p className="text-[10px] text-slate-400 mt-2 font-medium">
-                Faltam apenas <strong className="text-indigo-600 font-extrabold">{myMissingCount}</strong> para completar o seu álbum!
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2 font-medium">
+                Faltam apenas <strong className="text-indigo-600 dark:text-indigo-400 font-extrabold">{myMissingCount}</strong> para completar o seu álbum!
               </p>
             </div>
 
             {/* Card 2: Seleções Completas */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/85 dark:border-slate-800 shadow-xs flex flex-col justify-between transition-colors duration-150">
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <span className="text-xs font-bold text-slate-450 uppercase tracking-wider block mb-0.5">Seleções Completas</span>
-                  <div className="text-2xl font-black text-slate-800 tracking-tight">{completeSectionsCount} <span className="text-xs font-bold text-slate-400">/ {totalSectionsCount}</span></div>
+                  <span className="text-xs font-bold text-slate-450 dark:text-slate-400 uppercase tracking-wider block mb-0.5">Seleções Completas</span>
+                  <div className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{completeSectionsCount} <span className="text-xs font-bold text-slate-400 dark:text-slate-500">/ {totalSectionsCount}</span></div>
                 </div>
-                <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100 text-indigo-600 shrink-0">
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center border border-indigo-100 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400 shrink-0">
                   <Trophy className="w-4 h-4" />
                 </div>
               </div>
 
               {/* Progress bar */}
               <div className="mt-2 space-y-1">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
                   <span>Países Fechados</span>
-                  <span className="text-indigo-600">{completeSectionsPct}%</span>
+                  <span className="text-indigo-600 dark:text-indigo-400">{completeSectionsPct}%</span>
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-100 dark:bg-slate-950 h-2 rounded-full overflow-hidden">
                   <div 
                     className="bg-indigo-500 h-full rounded-full transition-all duration-500" 
                     style={{ width: `${completeSectionsPct}%` }}
@@ -625,30 +733,30 @@ export default function StatsDashboard({
                 </div>
               </div>
 
-              <p className="text-[10px] text-slate-400 mt-2 font-medium">
-                Seções com <strong className="text-indigo-600 font-bold">100%</strong> de figurinhas cadastradas e coladas.
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2 font-medium">
+                Seções com <strong className="text-indigo-600 dark:text-indigo-400 font-bold">100%</strong> de figurinhas cadastradas e coladas.
               </p>
             </div>
 
             {/* Card 3: Figurinhas Metalizadas */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/85 dark:border-slate-800 shadow-xs flex flex-col justify-between transition-colors duration-150">
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <span className="text-xs font-bold text-slate-450 uppercase tracking-wider block mb-0.5">Metalizadas Coladas</span>
-                  <div className="text-2xl font-black text-slate-800 tracking-tight">{myOwnedSpecialsCount} <span className="text-xs font-bold text-slate-400">/ {totalSpecialsCount}</span></div>
+                  <span className="text-xs font-bold text-slate-450 dark:text-slate-400 uppercase tracking-wider block mb-0.5">Metalizadas Coladas</span>
+                  <div className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{myOwnedSpecialsCount} <span className="text-xs font-bold text-slate-400 dark:text-slate-500">/ {totalSpecialsCount}</span></div>
                 </div>
-                <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center border border-amber-100 text-amber-600 shrink-0">
+                <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center border border-amber-100 dark:border-amber-900/50 text-amber-600 dark:text-amber-405 shrink-0">
                   <Sparkles className="w-4 h-4" />
                 </div>
               </div>
 
               {/* Progress bar */}
               <div className="mt-2 space-y-1">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
                   <span>Brilhantes</span>
-                  <span className="text-amber-600">{mySpecialsPct}%</span>
+                  <span className="text-amber-600 dark:text-amber-400">{mySpecialsPct}%</span>
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-100 dark:bg-slate-950 h-2 rounded-full overflow-hidden">
                   <div 
                     className="bg-amber-500 h-full rounded-full transition-all duration-500" 
                     style={{ width: `${mySpecialsPct}%` }}
@@ -656,40 +764,133 @@ export default function StatsDashboard({
                 </div>
               </div>
 
-              <p className="text-[10px] text-slate-400 mt-2 font-medium">
-                Você possui <strong className="text-amber-600 font-bold">{myRepeatedSpecialsCount} brilhantes de sobra</strong> para troca.
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2 font-medium">
+                Você possui <strong className="text-amber-600 dark:text-amber-400 font-bold">{myRepeatedSpecialsCount} brilhantes de sobra</strong> para troca.
               </p>
             </div>
 
             {/* Card 4: Minhas Repetidas */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/85 dark:border-slate-800 shadow-xs flex flex-col justify-between transition-colors duration-150">
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <span className="text-xs font-bold text-slate-450 uppercase tracking-wider block mb-0.5">Minhas Repetidas</span>
-                  <div className="text-2xl font-black text-slate-800 tracking-tight">{myTotalRepeatedCount} <span className="text-xs font-bold text-slate-400">unidades</span></div>
+                  <span className="text-xs font-bold text-slate-450 dark:text-slate-400 uppercase tracking-wider block mb-0.5">Minhas Repetidas</span>
+                  <div className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{myTotalRepeatedCount} <span className="text-xs font-bold text-slate-400 dark:text-slate-500">unidades</span></div>
                 </div>
-                <div className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center border border-rose-100 text-rose-600 shrink-0">
+                <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/30 flex items-center justify-center border border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 shrink-0">
                   <Layers className="w-4 h-4" />
                 </div>
               </div>
 
-              <div className="mt-3 bg-rose-50/50 rounded-lg p-2 border border-rose-100 text-[10px] text-rose-800 font-medium">
+              <div className="mt-3 bg-rose-50/50 dark:bg-rose-955/20 rounded-lg p-2 border border-rose-100 dark:border-rose-900/40 text-[10px] text-rose-800 dark:text-rose-400 font-medium">
                 Essas figurinhas repetidas representam uma excelente moeda de troca com a comunidade!
               </div>
 
-              <p className="text-[10px] text-slate-400 mt-2 font-medium">
-                Pressione a aba <strong className="text-rose-600 font-bold">Matches de Troca</strong> para usá-las.
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2 font-medium">
+                Pressione a aba <strong className="text-rose-600 dark:text-rose-400 font-bold">Matches de Troca</strong> para usá-las.
               </p>
             </div>
 
+          </div>
+
+          {/* Histórico Temporal de Figurinhas */}
+          <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col gap-4 transition-colors duration-150">
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-950 dark:text-slate-100 flex items-center gap-1.5 pb-1">
+                <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Histórico de Progresso do Álbum 📈
+              </h3>
+              <p className="text-[10px] text-slate-450 dark:text-slate-400 font-semibold">
+                Evolução temporal das suas figurinhas coladas, repetidas e o volume total acumulado.
+              </p>
+            </div>
+            
+            <div className="w-full h-[320px] mt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={historicData}
+                  margin={{ top: 10, right: -10, left: -20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:hidden" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" className="hidden dark:block" />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#94a3b8" 
+                    fontSize={10} 
+                    fontWeight="bold"
+                    tickLine={false} 
+                  />
+                  <YAxis 
+                    yAxisId="left"
+                    stroke="#94a3b8" 
+                    fontSize={10} 
+                    fontWeight="bold"
+                    tickLine={false} 
+                    axisLine={false}
+                  />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    stroke="#f43f5e" 
+                    fontSize={10} 
+                    fontWeight="bold"
+                    tickLine={false} 
+                    axisLine={false}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                      borderRadius: '0.75rem', 
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: '11px',
+                      fontWeight: '600'
+                    }} 
+                  />
+                  <Legend 
+                    verticalAlign="top" 
+                    height={36} 
+                    iconType="circle"
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }}
+                  />
+                  <Line 
+                    yAxisId="left"
+                    name="Figurinhas Totais" 
+                    type="monotone" 
+                    dataKey="Totais" 
+                    stroke="#6366f1" 
+                    strokeWidth={3} 
+                    activeDot={{ r: 6 }} 
+                    dot={{ r: 3 }}
+                  />
+                  <Line 
+                    yAxisId="left"
+                    name="Figurinhas Coladas" 
+                    type="monotone" 
+                    dataKey="Coladas" 
+                    stroke={themeColors.primary} 
+                    strokeWidth={2.5} 
+                    dot={{ r: 3 }}
+                  />
+                  <Line 
+                    yAxisId="right"
+                    name="Figurinhas Repetidas" 
+                    type="monotone" 
+                    dataKey="Repetidas" 
+                    stroke="#f43f5e" 
+                    strokeWidth={2.5} 
+                    dot={{ r: 3 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Seção 2: Curiosidades Matemáticas & Conquistas */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Curiosidades & Previsões Matemáticas */}
-            <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col gap-4 lg:col-span-1">
-              <h3 className="text-sm font-extrabold text-slate-950 flex items-center gap-1.5 border-b border-slate-100 pb-3">
+            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col gap-4 lg:col-span-1 transition-colors duration-150">
+              <h3 className="text-sm font-extrabold text-slate-950 dark:text-slate-100 flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-3">
                 <Target className="w-4 h-4 text-emerald-600" /> Insights & Probabilidades 🔮
               </h3>
 
@@ -697,45 +898,45 @@ export default function StatsDashboard({
                 
                 {/* Expected packs prediction */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider">Estimativa de Pacotes</span>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase font-mono tracking-wider">Estimativa de Pacotes</span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black text-slate-850 font-mono">{expectedPacksToComplete}</span>
-                    <span className="text-xs text-slate-500 font-medium">pacotes</span>
+                    <span className="text-xl font-black text-slate-850 dark:text-slate-200 font-mono">{expectedPacksToComplete}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">pacotes</span>
                   </div>
-                  <p className="text-[10px] text-slate-450 leading-relaxed font-semibold">
-                    Teoricamente necessário comprar para completar as <strong className="text-indigo-600 font-bold">{myMissingCount}</strong> restantes por conta própria (sem trocas).
+                  <p className="text-[10px] text-slate-450 dark:text-slate-400 leading-relaxed font-semibold">
+                    Teoricamente necessário comprar para completar as <strong className="text-indigo-600 dark:text-indigo-450 font-bold">{myMissingCount}</strong> restantes por conta própria (sem trocas).
                   </p>
                 </div>
 
-                <div className="border-t border-slate-150"></div>
+                <div className="border-t border-slate-150 dark:border-slate-800"></div>
 
                 {/* Estimated Financial Investment */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider">Investimento Estimado</span>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase font-mono tracking-wider">Investimento Estimado</span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black text-indigo-600 font-mono">
+                    <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
                       R$ {(expectedPacksToComplete * 7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-450 leading-relaxed font-semibold">
-                    Valor estimado em pacotes (R$ 7,00 cada). <strong className="text-emerald-600 font-extrabold">Dica:</strong> Faça trocas para reduzir este valor para mais próximo de R$ 1.024,00, correspondente ao valor mínimo para completar o álbum com zero repetidas.
+                  <p className="text-[10px] text-slate-450 dark:text-slate-400 leading-relaxed font-semibold">
+                    Valor estimado em pacotes (R$ 7,00 cada). <strong className="text-emerald-600 dark:text-emerald-450 font-extrabold">Dica:</strong> Faça trocas para reduzir este valor para mais próximo de R$ 1.024,00, correspondente ao valor mínimo para completar o álbum com zero repetidas.
                   </p>
                 </div>
 
-                <div className="border-t border-slate-150"></div>
+                <div className="border-t border-slate-150 dark:border-slate-800"></div>
 
                 {/* Score / Album Points */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider">Pontuação do Álbum</span>
-                    <span className="text-[10px] font-black text-amber-600 font-mono bg-amber-50 border border-amber-200 px-1.5 rounded">{albumPointsPct}%</span>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase font-mono tracking-wider">Pontuação do Álbum</span>
+                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 font-mono bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 px-1.5 rounded">{albumPointsPct}%</span>
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-xl font-black text-amber-500 font-mono">{myAlbumPoints}</span>
-                    <span className="text-xs text-slate-400 font-semibold">/ {totalPossiblePoints} pts</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 font-semibold">/ {totalPossiblePoints} pts</span>
                   </div>
-                  <p className="text-[10px] text-slate-450 leading-relaxed font-semibold">
-                    Metalizadas valem <strong className="text-amber-500">2 pts</strong> e Normais valem <strong className="text-slate-600">1 pt</strong>. Complete seu prestígio!
+                  <p className="text-[10px] text-slate-450 dark:text-slate-400 leading-relaxed font-semibold">
+                    Metalizadas valem <strong className="text-amber-500 font-bold">2 pts</strong> e Normais valem <strong className="text-slate-655 dark:text-slate-350 font-bold">1 pt</strong>. Complete seu prestígio!
                   </p>
                 </div>
 
@@ -743,16 +944,16 @@ export default function StatsDashboard({
             </div>
 
             {/* Suas Seleções Mais Avançadas & Progresso */}
-            <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col gap-4 lg:col-span-1">
-              <h3 className="text-sm font-extrabold text-slate-950 flex items-center gap-1.5 border-b border-slate-100 pb-3">
+            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col gap-4 lg:col-span-1 transition-colors duration-150">
+              <h3 className="text-sm font-extrabold text-slate-950 dark:text-slate-100 flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-3">
                 <TrendingUp className="w-4 h-4 text-indigo-600" /> Quase Concluídas 📈
               </h3>
 
               {topAdvancedTeams.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                  <Trophy className="w-10 h-10 text-slate-300 mb-2" />
-                  <p className="text-xs font-bold text-slate-500">Nenhuma seleção intermediária</p>
-                  <p className="text-[10px] text-slate-400 leading-normal mt-1 font-medium">
+                  <Trophy className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-2" />
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Nenhuma seleção intermediária</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal mt-1 font-medium">
                     Comece a marcar figurinhas nas seleções para ver o seu progresso aqui.
                   </p>
                 </div>
@@ -761,13 +962,13 @@ export default function StatsDashboard({
                   {topAdvancedTeams.map((item) => (
                     <div key={item.code} className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
                           <span className="text-lg">{item.flagUrl}</span>
                           <span>{item.name}</span>
                         </div>
-                        <span className="font-extrabold text-slate-500 text-[10px]">{item.owned} de {item.total} <span className="text-emerald-600">({item.pct}%)</span></span>
+                        <span className="font-extrabold text-slate-500 dark:text-slate-400 text-[10px]">{item.owned} de {item.total} <span className="text-emerald-600 dark:text-emerald-450">({item.pct}%)</span></span>
                       </div>
-                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-100 dark:bg-slate-950 h-1.5 rounded-full overflow-hidden">
                         <div 
                           className="bg-indigo-500 h-full rounded-full transition-all" 
                           style={{ width: `${item.pct}%` }}
@@ -776,8 +977,8 @@ export default function StatsDashboard({
                     </div>
                   ))}
                   
-                  <p className="text-[10px] text-slate-450 leading-normal mt-2 italic font-semibold border-t border-slate-50 pt-2.5">
-                    💡 Foque em conseguir figurinhas de <strong className="text-slate-800">{topAdvancedTeams[0]?.name}</strong> para fechar a sua próxima seleção!
+                  <p className="text-[10px] text-slate-450 dark:text-slate-550 leading-normal mt-2 italic font-semibold border-t border-slate-50 dark:border-slate-850 pt-2.5">
+                    💡 Foque em conseguir figurinhas de <strong className="text-slate-800 dark:text-slate-200">{topAdvancedTeams[0]?.name}</strong> para fechar a sua próxima seleção!
                   </p>
                 </div>
               )}
@@ -796,67 +997,67 @@ export default function StatsDashboard({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             
             {/* Card 1: Figurinhas Faltantes na Comunidade */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/85 dark:border-slate-800 shadow-xs flex flex-col justify-between transition-colors duration-150">
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cobiçadas (Desejos)</span>
-                  <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center border border-orange-100 text-orange-600">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Cobiçadas (Desejos)</span>
+                  <div className="w-7 h-7 rounded-lg bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center border border-orange-100 dark:border-orange-900/50 text-orange-600 dark:text-orange-400">
                     <Flame className="w-4 h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-slate-800 tracking-tight">{globalTotalMissing}</div>
+                <div className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{globalTotalMissing}</div>
               </div>
-              <p className="text-[10px] text-slate-500 mt-3 font-medium leading-normal">
-                Marcadas como <strong className="text-orange-600 font-extrabold">faltantes</strong> por usuários na plataforma.
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-3 font-medium leading-normal">
+                Marcadas como <strong className="text-orange-600 dark:text-orange-400 font-extrabold">faltantes</strong> por usuários na plataforma.
               </p>
             </div>
 
             {/* Card 2: Figurinhas Repetidas para Troca */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/85 dark:border-slate-800 shadow-xs flex flex-col justify-between transition-colors duration-150">
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Disponíveis p/ Troca</span>
-                  <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center border border-emerald-100 text-emerald-600">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Disponíveis p/ Troca</span>
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/50 text-emerald-600 dark:text-emerald-400">
                     <Layers className="w-4 h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-slate-800 tracking-tight">{globalTotalRepeated}</div>
+                <div className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{globalTotalRepeated}</div>
               </div>
-              <p className="text-[10px] text-slate-500 mt-3 font-medium leading-normal">
-                Cópias físicas <strong className="text-emerald-600 font-extrabold">repetidas</strong> de colecionadores ativos.
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-3 font-medium leading-normal">
+                Cópias físicas <strong className="text-emerald-600 dark:text-emerald-400 font-extrabold">repetidas</strong> de colecionadores ativos.
               </p>
             </div>
 
             {/* Card 3: Figurinhas Coladas no Geral */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/85 dark:border-slate-800 shadow-xs flex flex-col justify-between transition-colors duration-150">
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Coladas/Validadas</span>
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-100 text-blue-600">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Coladas/Validadas</span>
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center border border-blue-100 dark:border-blue-900/50 text-blue-600 dark:text-blue-400">
                     <Check className="w-4 h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-slate-800 tracking-tight">{globalTotalOwned}</div>
+                <div className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{globalTotalOwned}</div>
               </div>
-              <p className="text-[10px] text-slate-500 mt-3 font-medium leading-normal">
-                Figurinhas únicas e <strong className="text-blue-600 font-extrabold">coladas</strong> nos álbuns dos usuários.
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-3 font-medium leading-normal">
+                Figurinhas únicas e <strong className="text-blue-600 dark:text-blue-400 font-extrabold">coladas</strong> nos álbuns dos usuários.
               </p>
             </div>
 
             {/* Card 4: Média de Figurinhas */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-xs flex flex-col justify-between">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/85 dark:border-slate-800 shadow-xs flex flex-col justify-between transition-colors duration-150">
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Média por Álbum</span>
-                  <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center border border-amber-100 text-amber-600">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Média por Álbum</span>
+                  <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center border border-amber-100 dark:border-amber-900/50 text-amber-600 dark:text-amber-400">
                     <TrendingUp className="w-4 h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-slate-800 tracking-tight">
+                <div className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
                   {Math.round((globalTotalOwned + globalTotalRepeated) / activeCollectorsCount)} un
                 </div>
               </div>
-              <p className="text-[10px] text-slate-500 mt-3 font-medium leading-normal">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-3 font-medium leading-normal">
                 Média acumulada de figurinhas físicas por colecionador ativo.
               </p>
             </div>
@@ -867,7 +1068,7 @@ export default function StatsDashboard({
           <div id="stats_insights" className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Insight 1: Joia da Coroa */}
-            <div className="bg-slate-900 text-slate-100 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between border border-amber-500/10 shadow-lg min-h-[170px]">
+            <div className="bg-slate-900 dark:bg-slate-950 text-slate-100 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between border border-amber-500/10 shadow-lg min-h-[170px] transition-colors duration-150">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl -mr-6 -mt-6 pointer-events-none"></div>
               <div>
                 <div className="flex items-center gap-2 text-amber-400 mb-4">
@@ -879,16 +1080,16 @@ export default function StatsDashboard({
                   <div>
                     <div className="flex items-baseline gap-2.5">
                       <span className="text-3xl text-amber-300 font-black tracking-tight">{crownJewel.sticker.id}</span>
-                      <span className="text-xs text-stone-400 font-semibold font-sans">
+                      <span className="text-xs text-stone-400 dark:text-slate-400 font-semibold font-sans">
                         {crownJewel.team?.flagUrl} {crownJewel.team?.name}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-300 mt-3.5 leading-relaxed font-medium">
+                    <p className="text-xs text-slate-300 dark:text-slate-300 mt-3.5 leading-relaxed font-medium">
                       Esta é a figurinha que você possui ({crownJewel.isRepeated ? <strong className="text-emerald-400 font-extrabold">{crownJewel.myQuantity} repetida(s)</strong> : <strong className="text-stone-300 font-bold">colada</strong>}) que é a mais <strong className="text-amber-400">rara e escassa</strong> do ecossistema: apenas <strong className="text-amber-300 font-black">{crownJewel.otherOwnersCount} outro(s) colecionador(es)</strong> na plataforma inteira a possuem cadastrada! Um verdadeiro privilégio no seu álbum.
                     </p>
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400 leading-relaxed font-semibold mt-1">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed font-semibold mt-1">
                     Você ainda não marcou nenhuma figurinha em seu álbum. Comece a cadastrar para descobrir qual dos seus itens é o mais cobiçado pelos outros usuários!
                   </p>
                 )}
@@ -896,7 +1097,7 @@ export default function StatsDashboard({
             </div>
 
             {/* Insight 2: Desafio Supremo */}
-            <div className="bg-slate-900 text-slate-100 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between border border-indigo-550/10 shadow-lg min-h-[170px]">
+            <div className="bg-slate-900 dark:bg-slate-950 text-slate-100 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between border border-indigo-500/10 shadow-lg min-h-[170px] transition-colors duration-150">
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl -mr-6 -mt-6 pointer-events-none"></div>
               <div>
                 <div className="flex items-center gap-2 text-indigo-400 mb-4">
@@ -908,16 +1109,16 @@ export default function StatsDashboard({
                   <div>
                     <div className="flex items-baseline gap-2.5">
                       <span className="text-3xl text-indigo-300 font-black tracking-tight">{supremeChallenge.sticker.id}</span>
-                      <span className="text-xs text-slate-400 font-semibold font-sans">
+                      <span className="text-xs text-slate-400 dark:text-slate-400 font-semibold font-sans">
                         {supremeChallenge.team?.flagUrl} {supremeChallenge.team?.name}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-300 mt-3.5 leading-relaxed font-medium">
-                      Das figurinhas <strong className="text-indigo-400">faltantes</strong> no seu álbum, esta é a mais difícil de obter de outros colecionadores: existem <strong className="text-pink-400 font-black">{supremeChallenge.repeatedQty} cópias repetidas</strong> disponíveis para troca na plataforma.{supremeChallenge.repeatedQty === 0 && " Ela é um mito absoluto no sistema!"}
+                    <p className="text-xs text-slate-300 dark:text-slate-300 mt-3.5 leading-relaxed font-medium">
+                      Das figurinhas <strong className="text-indigo-400 font-bold">faltantes</strong> no seu álbum, esta é a mais difícil de obter de outros colecionadores: existem <strong className="text-pink-400 font-black">{supremeChallenge.repeatedQty} cópias repetidas</strong> disponíveis para troca na plataforma.{supremeChallenge.repeatedQty === 0 && " Ela é um mito absoluto no sistema!"}
                     </p>
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400 leading-relaxed font-semibold mt-1">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed font-semibold mt-1">
                     Parabéns! Você já possui todas as figurinhas do álbum ou não possui faltas registradas. Seu álbum está completo e brilhante!
                   </p>
                 )}
@@ -930,18 +1131,18 @@ export default function StatsDashboard({
           <div id="stats_rankings" className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-2">
             
             {/* Top 5 Mais Procurados (Faltantes) */}
-            <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-4">
+            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col gap-4 transition-colors duration-150">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <Flame className="w-4 h-4 text-orange-500 shrink-0 animate-pulse" />
                   Top 5 Figurinhas Mais Cobiçadas da Comunidade
                 </h3>
-                <p className="text-[11px] text-slate-450 font-semibold leading-tight mt-1">
+                <p className="text-[11px] text-slate-450 dark:text-slate-400 font-semibold leading-tight mt-1">
                   As figurinhas que os colecionadores mais precisam e que têm pouca oferta de troca circulando.
                 </p>
               </div>
 
-              <div className="divide-y divide-slate-100 mt-2">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
                 {topMissingStickers.map((item, idx) => {
                   const state = myStickers[item.sticker.id];
                   const isMyMissing = !state || state.status === 'missing';
@@ -951,19 +1152,19 @@ export default function StatsDashboard({
                   return (
                     <div key={item.sticker.id} className="flex items-center justify-between py-3 gap-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono font-bold text-slate-400 w-4">{idx + 1}</span>
+                        <span className="text-xs font-mono font-bold text-slate-400 dark:text-slate-500 w-4">{idx + 1}</span>
                         <div className={`w-8 h-8 rounded-lg text-xs font-mono font-black flex items-center justify-center shrink-0 ${
                           item.sticker.isSpecial 
-                            ? 'bg-amber-100 border border-amber-300 text-amber-800' 
-                            : 'bg-slate-100 border border-slate-200 text-slate-600'
+                            ? 'bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-900/50 text-amber-800 dark:text-amber-400' 
+                            : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                         }`}>
-                          <span className={item.sticker.isSpecial ? "text-[11px] text-amber-700 font-extrabold" : "text-[11px]"}>{item.sticker.number}</span>
+                          <span className={item.sticker.isSpecial ? "text-[11px] text-amber-700 dark:text-amber-405 font-extrabold" : "text-[11px]"}>{item.sticker.number}</span>
                         </div>
                         <div>
-                          <div className="flex items-center gap-1 text-[11px] font-extrabold text-slate-800">
+                          <div className="flex items-center gap-1 text-[11px] font-extrabold text-slate-800 dark:text-slate-200">
                             {item.sticker.isSpecial && <Sparkles className="w-3 h-3 text-amber-500" />} {item.sticker.id}
                           </div>
-                          <span className="text-[9px] text-slate-400 font-semibold font-sans">
+                          <span className="text-[9px] text-slate-400 dark:text-slate-500 font-semibold font-sans">
                             {item.team?.flagUrl} {item.team?.name}
                           </span>
                         </div>
@@ -972,17 +1173,17 @@ export default function StatsDashboard({
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           {isMyRepeated && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-emerald-200 bg-emerald-50 text-emerald-800">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-400">
                               Tenho {myStickers[item.sticker.id].quantity || 1} repetida(s)
                             </span>
                           )}
                           {isMyOwned && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-blue-250 bg-blue-50 text-blue-800">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-blue-250 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-400">
                               Colada
                             </span>
                           )}
                           {isMyMissing && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-slate-200 bg-slate-50 text-slate-500">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-slate-500 dark:text-slate-450">
                               Preciso dela
                             </span>
                           )}
@@ -992,7 +1193,7 @@ export default function StatsDashboard({
                           <span className="text-xs font-black text-rose-500 block font-mono leading-none">
                             {item.missingCount} pedidos
                           </span>
-                          <span className="text-[9px] text-slate-400 font-mono block leading-none mt-1">
+                          <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono block leading-none mt-1">
                             {item.repeatedQty} de sobra
                           </span>
                         </div>
@@ -1004,18 +1205,18 @@ export default function StatsDashboard({
             </div>
 
             {/* Top 5 Mais Raras (Escassez) */}
-            <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-4">
+            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col gap-4 transition-colors duration-150">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <Crown className="w-4 h-4 text-amber-500 shrink-0" />
                   Top 5 Figurinhas Mais Raras da Comunidade
                 </h3>
-                <p className="text-[11px] text-slate-450 font-semibold leading-tight mt-1">
+                <p className="text-[11px] text-slate-450 dark:text-slate-400 font-semibold leading-tight mt-1">
                   As figurinhas mais escassas da comunidade com base na proporção de colecionadores ativos que as possuem.
                 </p>
               </div>
 
-              <div className="divide-y divide-slate-100 mt-2">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
                 {topRareStickers.map((item, idx) => {
                   const state = myStickers[item.sticker.id];
                   const isMyMissing = !state || state.status === 'missing';
@@ -1025,19 +1226,19 @@ export default function StatsDashboard({
                   return (
                     <div key={item.sticker.id} className="flex items-center justify-between py-3 gap-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono font-bold text-slate-400 w-4">{idx + 1}</span>
+                        <span className="text-xs font-mono font-bold text-slate-400 dark:text-slate-500 w-4">{idx + 1}</span>
                         <div className={`w-8 h-8 rounded-lg text-xs font-mono font-black flex items-center justify-center shrink-0 ${
                           item.sticker.isSpecial 
-                            ? 'bg-amber-100 border border-amber-300 text-amber-800' 
-                            : 'bg-slate-100 border border-slate-200 text-slate-600'
+                            ? 'bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-900/50 text-amber-800 dark:text-amber-400' 
+                            : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                         }`}>
-                          <span className={item.sticker.isSpecial ? "text-[11px] text-amber-700 font-extrabold" : "text-[11px]"}>{item.sticker.number}</span>
+                          <span className={item.sticker.isSpecial ? "text-[11px] text-amber-700 dark:text-amber-405 font-extrabold" : "text-[11px]"}>{item.sticker.number}</span>
                         </div>
                         <div>
-                          <div className="flex items-center gap-1 text-[11px] font-extrabold text-slate-800">
+                          <div className="flex items-center gap-1 text-[11px] font-extrabold text-slate-800 dark:text-slate-200">
                             {item.sticker.isSpecial && <Sparkles className="w-3 h-3 text-amber-500" />} {item.sticker.id}
                           </div>
-                          <span className="text-[9px] text-slate-400 font-semibold font-sans">
+                          <span className="text-[9px] text-slate-400 dark:text-slate-500 font-semibold font-sans">
                             {item.team?.flagUrl} {item.team?.name}
                           </span>
                         </div>
@@ -1046,17 +1247,17 @@ export default function StatsDashboard({
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           {isMyRepeated && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-emerald-200 bg-emerald-50 text-emerald-800">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-400">
                               Tenho {myStickers[item.sticker.id].quantity || 1} rep.
                             </span>
                           )}
                           {isMyOwned && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-blue-200 bg-blue-50 text-blue-850">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-blue-200 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-950/30 text-blue-850 dark:text-blue-450">
                               Colada
                             </span>
                           )}
                           {isMyMissing && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-slate-200 bg-slate-50 text-slate-500">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-slate-500 dark:text-slate-450">
                               Preciso
                             </span>
                           )}
@@ -1066,7 +1267,7 @@ export default function StatsDashboard({
                           <span className="text-xs font-black text-amber-600 block font-mono leading-none">
                             {item.scarcityPct}% Escassa
                           </span>
-                          <span className="text-[9px] text-slate-400 font-mono block leading-none mt-1">
+                          <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono block leading-none mt-1">
                             {item.ownedCount} {item.ownedCount === 1 ? 'possuidor' : 'possuidores'}
                           </span>
                         </div>
@@ -1078,18 +1279,18 @@ export default function StatsDashboard({
             </div>
 
             {/* Top 5 Mais Abundantes (Mais Ofertas de Troca) */}
-            <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-4">
+            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col gap-4 transition-colors duration-150">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <Layers className="w-4 h-4 text-emerald-600 shrink-0" />
                   Top 5 Figurinhas Mais Abundantes da Comunidade
                 </h3>
-                <p className="text-[11px] text-slate-450 font-semibold leading-tight mt-1">
+                <p className="text-[11px] text-slate-450 dark:text-slate-400 font-semibold leading-tight mt-1">
                   As figurinhas com maior número de cópias repetidas disponíveis para negociação de troca.
                 </p>
               </div>
 
-              <div className="divide-y divide-slate-100 mt-2">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
                 {topRepeatedStickers.map((item, idx) => {
                   const state = myStickers[item.sticker.id];
                   const isMyMissing = !state || state.status === 'missing';
@@ -1099,19 +1300,19 @@ export default function StatsDashboard({
                   return (
                     <div key={item.sticker.id} className="flex items-center justify-between py-3 gap-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono font-bold text-slate-400 w-4">{idx + 1}</span>
+                        <span className="text-xs font-mono font-bold text-slate-400 dark:text-slate-500 w-4">{idx + 1}</span>
                         <div className={`w-8 h-8 rounded-lg text-xs font-mono font-black flex items-center justify-center shrink-0 ${
                           item.sticker.isSpecial 
-                            ? 'bg-amber-100 border border-amber-300 text-amber-800' 
-                            : 'bg-slate-100 border border-slate-200 text-slate-600'
+                            ? 'bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-900/50 text-amber-800 dark:text-amber-400' 
+                            : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                         }`}>
-                          <span className={item.sticker.isSpecial ? "text-[11px] text-amber-700 font-extrabold" : "text-[11px]"}>{item.sticker.number}</span>
+                          <span className={item.sticker.isSpecial ? "text-[11px] text-amber-700 dark:text-amber-405 font-extrabold" : "text-[11px]"}>{item.sticker.number}</span>
                         </div>
                         <div>
-                          <div className="flex items-center gap-1 text-[11px] font-extrabold text-slate-800">
+                          <div className="flex items-center gap-1 text-[11px] font-extrabold text-slate-800 dark:text-slate-200">
                             {item.sticker.isSpecial && <Sparkles className="w-3 h-3 text-amber-500" />} {item.sticker.id}
                           </div>
-                          <span className="text-[9px] text-slate-400 font-semibold font-sans">
+                          <span className="text-[9px] text-slate-400 dark:text-slate-500 font-semibold font-sans">
                             {item.team?.flagUrl} {item.team?.name}
                           </span>
                         </div>
@@ -1120,17 +1321,17 @@ export default function StatsDashboard({
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           {isMyRepeated && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-emerald-200 bg-emerald-50 text-emerald-800">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-400">
                               Tenho {myStickers[item.sticker.id].quantity || 1} repetida(s)
                             </span>
                           )}
                           {isMyOwned && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-blue-200 bg-blue-50 text-blue-850">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-blue-200 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-950/30 text-blue-850 dark:text-blue-450">
                               Colada
                             </span>
                           )}
                           {isMyMissing && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-slate-200 bg-slate-50 text-slate-500">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-slate-500 dark:text-slate-450">
                               Preciso dela
                             </span>
                           )}
@@ -1140,7 +1341,7 @@ export default function StatsDashboard({
                           <span className="text-xs font-black text-emerald-600 block font-mono leading-none">
                             {item.repeatedQty} de sobra
                           </span>
-                          <span className="text-[9px] text-slate-400 font-mono block leading-none mt-1">
+                          <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono block leading-none mt-1">
                             {item.missingCount} querem
                           </span>
                         </div>

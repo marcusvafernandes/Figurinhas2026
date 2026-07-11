@@ -81,7 +81,9 @@ import {
   Mail,
   Printer,
   X,
-  QrCode
+  QrCode,
+  Sun,
+  Moon
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
@@ -561,78 +563,80 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, setActiveTab, set
       initial={{ opacity: 0, x: 100, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: 50, scale: 0.9, transition: { duration: 0.2 } }}
-      className={`pointer-events-auto rounded-xl p-4 shadow-xl flex gap-3 backdrop-blur-md border relative overflow-hidden ${
+      className={`pointer-events-auto rounded-xl p-4 shadow-xl flex gap-3 backdrop-blur-md border relative overflow-hidden transition-colors duration-150 ${
         isAlbumComplete
-          ? 'bg-gradient-to-br from-amber-500/10 via-yellow-450/5 to-emerald-500/10 border-2 border-amber-400 shadow-amber-400/20'
+          ? 'bg-gradient-to-br from-amber-500/10 via-yellow-450/5 to-emerald-500/10 dark:from-amber-950/25 dark:via-yellow-950/10 dark:to-emerald-950/25 border-2 border-amber-400 shadow-amber-400/20'
           : isMatch 
-          ? 'bg-white border-2 border-amber-400' 
+          ? 'bg-white dark:bg-slate-900 border-2 border-amber-400' 
           : isAchievement
-          ? 'bg-white border-2 border-yellow-500 shadow-yellow-100/50'
+          ? 'bg-white dark:bg-slate-900 border-2 border-yellow-500 shadow-yellow-100/50 dark:shadow-none'
           : isMessage 
-          ? 'bg-white border border-emerald-300' 
-          : 'bg-white border border-slate-200'
+          ? 'bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800' 
+          : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
       }`}
     >
+      {/* Absolute Close Button for small screen robustness and accessibility */}
+      <button 
+        id={`btn-close-${toast.id}`}
+        onClick={() => onClose(toast.id)}
+        className="absolute top-2 right-2 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-450 transition cursor-pointer p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center min-w-[32px] min-h-[32px] z-50"
+        title="Fechar"
+      >
+        <X className="w-4 h-4" />
+      </button>
+
       {isAlbumComplete ? (
         <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-500 border border-yellow-300 flex items-center justify-center shrink-0 self-start text-xl select-none shadow-md animate-bounce">
           🏆
         </div>
       ) : isSystem ? (
-        <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0 self-start text-blue-500">
+        <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 flex items-center justify-center shrink-0 self-start text-blue-500 dark:text-blue-400">
           <AlertCircle className="w-5 h-5" />
         </div>
       ) : isAchievement ? (
-        <div className="w-10 h-10 rounded-lg bg-yellow-50 border border-yellow-200 flex items-center justify-center shrink-0 self-start text-lg select-none">
+        <div className="w-10 h-10 rounded-lg bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-900/50 flex items-center justify-center shrink-0 self-start text-lg select-none">
           {toast.partnerUid || '🏆'}
         </div>
       ) : (
         <img 
           src={`https://api.dicebear.com/7.x/identicon/svg?seed=${toast.partnerUid}`} 
           alt="avatar" 
-          className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-250 self-start shrink-0"
+          className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-250 dark:border-emerald-900 self-start shrink-0"
           referrerPolicy="no-referrer"
         />
       )}
-      <div className="flex-1 min-w-0 pb-1">
-        <div className="flex items-center justify-between gap-1">
+      <div className="flex-1 min-w-0 pb-1 pr-6">
+        <div className="flex items-center gap-1">
           {isAlbumComplete ? (
-            <span className="font-black text-[11px] text-amber-850 flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
+            <span className="font-black text-[11px] text-amber-850 dark:text-amber-400 flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
               🌟 CONQUISTA SUPREMA!
             </span>
           ) : isMatch ? (
-            <span className="font-extrabold text-[11px] text-amber-850 flex items-center gap-1.5 uppercase tracking-wider">
+            <span className="font-extrabold text-[11px] text-amber-850 dark:text-amber-400 flex items-center gap-1.5 uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 animate-bounce" /> Match Perfeito!
             </span>
           ) : isAchievement ? (
-            <span className="font-extrabold text-[11px] text-yellow-800 flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
+            <span className="font-extrabold text-[11px] text-yellow-800 dark:text-yellow-500 flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
               🏆 Conquista Desbloqueada!
             </span>
           ) : isMessage ? (
-            <span className="font-extrabold text-[11px] text-emerald-850 flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
+            <span className="font-extrabold text-[11px] text-emerald-850 dark:text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
               💬 Nova Mensagem
             </span>
           ) : isUserChange ? (
-            <span className="font-extrabold text-[11px] text-indigo-850 flex items-center gap-1.5 uppercase tracking-wider">
+            <span className="font-extrabold text-[11px] text-indigo-850 dark:text-indigo-400 flex items-center gap-1.5 uppercase tracking-wider">
               👤 Usuário Alterado
             </span>
           ) : (
-            <span className="font-extrabold text-[11px] text-slate-500 flex items-center gap-1.5 uppercase tracking-wider">
+            <span className="font-extrabold text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 uppercase tracking-wider">
               🔔 Notificação
             </span>
           )}
-          <button 
-            id={`btn-close-${toast.id}`}
-            onClick={() => onClose(toast.id)}
-            className="text-slate-400 hover:text-rose-600 transition cursor-pointer p-2 -m-2 shrink-0 rounded-full hover:bg-slate-100 flex items-center justify-center min-w-[36px] min-h-[36px]"
-            title="Fechar"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
-        <p className="font-extrabold text-sm text-slate-800 mt-1 truncate">
+        <p className="font-extrabold text-sm text-slate-800 dark:text-slate-100 mt-1 truncate">
           {isMatch ? toast.partnerName : toast.title}
         </p>
-        <p className="text-xs text-slate-600 mt-1 leading-relaxed font-semibold">
+        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed font-semibold">
           {isMatch 
             ? "Tem as figurinhas do seu álbum e busca as suas repetidas!" 
             : toast.description}
@@ -1083,6 +1087,46 @@ export default function App() {
   const [hasNotifiedComplete, setHasNotifiedComplete] = useState(() => {
     return localStorage.getItem('copa_stickers_notified_complete') === 'true';
   });
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('copa_stickers_dark_mode');
+      if (stored !== null) {
+        return stored === 'true';
+      }
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  const [accentColor, setAccentColor] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('copa_accent_color') || 'emerald';
+    }
+    return 'emerald';
+  });
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('copa_stickers_dark_mode', String(darkMode));
+  }, [darkMode]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const htmlEl = document.documentElement;
+      // Remove any existing theme- classes safely
+      Array.from(htmlEl.classList).forEach(className => {
+        if (className.startsWith('theme-')) {
+          htmlEl.classList.remove(className);
+        }
+      });
+      htmlEl.classList.add(`theme-${accentColor}`);
+      localStorage.setItem('copa_accent_color', accentColor);
+    }
+  }, [accentColor]);
   const [exportType, setExportType] = useState<'repeated' | 'missing'>('repeated');
   const [statsSubTab, setStatsSubTab] = useState<'meu_album' | 'comunidade'>('meu_album');
   const [isImporting, setIsImporting] = useState(false);
@@ -3334,7 +3378,7 @@ export default function App() {
   // If it is unmarked, it means I don't have it tracked yet, or I already have it? 
   // Let's track completion percentage as percentage of stickers we OWN (Owned = totalStickersCount - missing).
   const completionPercentage = Math.round(((totalStickersCount - countedMissing) / totalStickersCount) * 100);
-  const isAlbumFullyComplete = countedMissing === 0;
+  const isAlbumFullyComplete = totalStickersCount > 0 && countedMissing === 0 && Object.keys(myStickers).length >= totalStickersCount;
 
   useEffect(() => {
     if (!isSettledRef.current) return;
@@ -3527,15 +3571,15 @@ export default function App() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-tr from-sky-50/50 via-emerald-50/40 to-amber-50/50 text-slate-800 font-sans flex flex-col print:hidden">
+      <div className="min-h-screen bg-brand-gradient dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-800 dark:text-slate-200 font-sans flex flex-col print:hidden transition-colors duration-150">
       
       {/* Dynamic Header */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-emerald-100 sticky top-0 z-50 shadow-sm text-slate-800">
+      <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-emerald-100 dark:border-emerald-950/60 sticky top-0 z-50 shadow-sm text-slate-800 dark:text-slate-200 transition-colors duration-150">
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           
           {/* Logo Title */}
           <div className="flex items-center gap-2.5">
-            <div className="relative p-0.5 bg-white rounded-xl shadow-xs border border-emerald-100/50 shrink-0 select-none">
+            <div className="relative p-0.5 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-emerald-100/50 dark:border-emerald-900/40 shrink-0 select-none">
               <img 
                 src="/app_icon.png" 
                 alt="Logo Copa 2026" 
@@ -3544,20 +3588,20 @@ export default function App() {
               />
             </div>
             <div>
-              <h1 className="font-extrabold text-base tracking-tight sm:text-lg flex items-center gap-1.5 text-slate-900">
+              <h1 className="font-extrabold text-base tracking-tight sm:text-lg flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
                 Álbum Copa do Mundo 2026 
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 font-bold font-mono">
+                <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900/50 font-bold font-mono">
                   🤝 TROCA INTELIGENTE
                 </span>
               </h1>
-              <p className="text-[10px] text-slate-500 font-semibold">Encontre aquela figurinha que você precisa</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Encontre aquela figurinha que você precisa</p>
             </div>
           </div>
 
           {/* Heuristic #1: Visibility of System Status - Real-Time Sync Badge */}
           <div 
             id="nielsen-sync-badge"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] sm:text-xs font-bold text-slate-650 shadow-2xs select-none"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-850 rounded-xl text-[10px] sm:text-xs font-bold text-slate-650 dark:text-slate-350 shadow-2xs select-none"
             title={user.uid.startsWith('demo_') ? "Você está rodando no Modo Demo local" : "Seus dados estão sincronizados na nuvem"}
           >
             <span className="relative flex h-2 w-2">
@@ -3566,25 +3610,25 @@ export default function App() {
             </span>
             <span>
               {user.uid.startsWith('demo_') ? (
-                <>Modo Demonstração <span className="text-amber-700">(Local) 💾</span></>
+                <>Modo Demonstração <span className="text-amber-700 dark:text-amber-400">(Local) 💾</span></>
               ) : user.uid.startsWith('custom_sim_') ? (
-                <>Simulador Ativo <span className="text-purple-700">(Sandbox) 🤖</span></>
+                <>Simulador Ativo <span className="text-purple-700 dark:text-purple-400">(Sandbox) 🤖</span></>
               ) : (
-                <>Sincronizado na Nuvem <span className="text-emerald-700">☁️</span></>
+                <>Sincronizado na Nuvem <span className="text-emerald-700 dark:text-emerald-400">☁️</span></>
               )}
             </span>
           </div>
 
           {/* User Status Bar */}
-          <div className="flex items-center gap-3 bg-emerald-50/70 pl-3 pr-2 py-1.5 rounded-xl border border-emerald-200/60 text-xs text-emerald-900 shadow-sm">
+          <div className="flex items-center gap-3 bg-emerald-50/70 dark:bg-emerald-950/30 pl-3 pr-2 py-1.5 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40 text-xs text-emerald-900 dark:text-emerald-200 shadow-sm transition-colors duration-150">
             <div className="flex items-center gap-2">
               <img 
                 src={user.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.uid}`} 
                 alt="Profile" 
-                className="w-6 h-6 rounded-lg bg-emerald-100 border border-emerald-200"
+                className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900 border border-emerald-200 dark:border-emerald-800"
                 referrerPolicy="no-referrer"
               />
-              <span className="font-bold text-emerald-955 max-w-[100px] sm:max-w-none truncate flex items-center gap-1">
+              <span className="font-bold text-emerald-955 dark:text-emerald-400 max-w-[100px] sm:max-w-none truncate flex items-center gap-1">
                 {user.displayName}
                 {rarestAchievement && (
                   <span 
@@ -3597,12 +3641,23 @@ export default function App() {
               </span>
             </div>
             
-            <div className="h-4 w-px bg-emerald-200"></div>
+            <div className="h-4 w-px bg-emerald-200 dark:bg-emerald-800"></div>
+
+            <button
+              type="button"
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-1 rounded-lg text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/60 transition cursor-pointer"
+              title={darkMode ? "Mudar para Modo Claro" : "Mudar para Modo Escuro"}
+            >
+              {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
+
+            <div className="h-4 w-px bg-emerald-200 dark:bg-emerald-800"></div>
 
             <button 
               type="button"
               onClick={handleLogout}
-              className="p-1 rounded-lg text-emerald-700 hover:text-red-650 hover:bg-red-50/60 transition cursor-pointer"
+              className="p-1 rounded-lg text-emerald-700 dark:text-emerald-400 hover:text-red-650 hover:bg-red-50/60 dark:hover:bg-red-950/40 transition cursor-pointer"
               title="Sair"
             >
               <Power className="w-3.5 h-3.5" />
@@ -3619,7 +3674,7 @@ export default function App() {
         <aside className="w-full md:w-64 flex flex-col gap-4">
           
           {/* Main Tabs Selection */}
-          <nav className="bg-white rounded-2xl p-2.5 border border-slate-200/80 shadow-sm flex flex-row md:flex-col gap-1.5 overflow-x-auto md:overflow-x-visible">
+          <nav className="bg-white dark:bg-slate-900 rounded-2xl p-2.5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-row md:flex-col gap-1.5 overflow-x-auto md:overflow-x-visible">
             <button
               type="button"
               id="tab_album"
@@ -3627,7 +3682,7 @@ export default function App() {
               className={`flex-1 md:flex-initial flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                 activeTab === 'album' 
                   ? 'bg-emerald-600 text-white shadow-sm' 
-                  : 'text-slate-600 hover:text-emerald-950 hover:bg-emerald-50/70'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-emerald-950 dark:hover:text-slate-150 hover:bg-emerald-50/70 dark:hover:bg-slate-800/60'
               }`}
             >
               <BookOpen className="w-4 h-4 shrink-0" />
@@ -3641,7 +3696,7 @@ export default function App() {
               className={`flex-1 md:flex-initial flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-xs font-bold transition whitespace-nowrap relative cursor-pointer ${
                 activeTab === 'matches' 
                   ? 'bg-emerald-600 text-white shadow-sm' 
-                  : 'text-slate-600 hover:text-emerald-950 hover:bg-emerald-50/70'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-emerald-950 dark:hover:text-slate-150 hover:bg-emerald-50/70 dark:hover:bg-slate-800/60'
               }`}
             >
               <Users className="w-4 h-4 shrink-0" />
@@ -3660,7 +3715,7 @@ export default function App() {
               className={`flex-1 md:flex-initial flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                 activeTab === 'profile' 
                   ? 'bg-emerald-600 text-white shadow-sm' 
-                  : 'text-slate-600 hover:text-emerald-950 hover:bg-emerald-50/70'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-emerald-950 dark:hover:text-slate-150 hover:bg-emerald-50/70 dark:hover:bg-slate-800/60'
               }`}
             >
               <User className="w-4 h-4 shrink-0" />
@@ -3674,7 +3729,7 @@ export default function App() {
               className={`flex-1 md:flex-initial flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                 activeTab === 'stats' 
                   ? 'bg-emerald-600 text-white shadow-sm' 
-                  : 'text-slate-600 hover:text-emerald-950 hover:bg-emerald-50/70'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-emerald-950 dark:hover:text-slate-150 hover:bg-emerald-50/70 dark:hover:bg-slate-800/60'
               }`}
             >
               <BarChart3 className="w-4 h-4 shrink-0" />
@@ -3688,7 +3743,7 @@ export default function App() {
               className={`flex-1 md:flex-initial flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                 activeTab === 'compare' 
                   ? 'bg-emerald-600 text-white shadow-sm' 
-                  : 'text-slate-600 hover:text-emerald-950 hover:bg-emerald-50/70'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-emerald-950 dark:hover:text-slate-150 hover:bg-emerald-50/70 dark:hover:bg-slate-800/60'
               }`}
             >
               <ArrowRightLeft className="w-4 h-4 shrink-0" />
@@ -3713,8 +3768,8 @@ export default function App() {
           </nav>
 
           {/* Album Statistics Card */}
-          <div className={`bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm ${activeTab === 'album' ? 'block' : 'hidden md:block'}`}>
-            <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-3">Progresso do Álbum</h3>
+          <div className={`bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800 shadow-sm ${activeTab === 'album' ? 'block' : 'hidden md:block'}`}>
+            <h3 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider mb-3">Progresso do Álbum</h3>
             
             {/* ProgressBar */}
             <div className="mb-4">
@@ -3735,10 +3790,10 @@ export default function App() {
               ) : (
                 <>
                   <div className="flex justify-between items-end text-xs font-mono font-bold mb-1.5">
-                    <span className="text-emerald-600">{completionPercentage}% COMPLETO</span>
-                    <span className="text-slate-500">{totalStickersCount - countedMissing} / {totalStickersCount}</span>
+                    <span className="text-emerald-650 dark:text-emerald-400">{completionPercentage}% COMPLETO</span>
+                    <span className="text-slate-500 dark:text-slate-400">{totalStickersCount - countedMissing} / {totalStickersCount}</span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-200/60 dark:border-slate-700/60">
                     <div 
                       className="bg-emerald-500 h-full rounded-full transition-all duration-550" 
                       style={{ width: `${completionPercentage}%` }}
@@ -3770,15 +3825,16 @@ export default function App() {
                         dataKey="value"
                       >
                         {progressChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
                       <Tooltip 
                         formatter={(value) => [`${value} un.`, 'Quantidade']}
                         contentStyle={{ 
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                          backgroundColor: darkMode ? '#1e293b' : 'rgba(255, 255, 255, 0.95)', 
                           borderRadius: '12px', 
-                          borderColor: '#f1f5f9',
+                          borderColor: darkMode ? '#334155' : '#f1f5f9',
+                          color: darkMode ? '#f8fafc' : '#0f172a',
                           fontSize: '11px',
                           fontWeight: 'bold',
                           boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
@@ -3789,7 +3845,7 @@ export default function App() {
                   {/* Center stat overlay */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <span className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold">Total</span>
-                    <span className="text-base font-black text-slate-800 leading-none">
+                    <span className="text-base font-black text-slate-800 dark:text-slate-100 leading-none">
                       {totalStickersCount + totalRepeatedSum}
                     </span>
                     <span className="text-[8px] text-slate-400 font-mono mt-0.5">figurinhas</span>
@@ -3799,29 +3855,29 @@ export default function App() {
             })()}
 
             <div className="grid grid-cols-3 gap-1.5 text-center text-xs font-mono">
-              <div className="bg-emerald-50/50 border border-emerald-100/80 p-2 rounded-xl flex flex-col justify-center items-center">
+              <div className="bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/80 dark:border-emerald-900/30 p-2 rounded-xl flex flex-col justify-center items-center">
                 <span className="bg-emerald-500 w-1.5 h-1.5 rounded-full mb-1"></span>
-                <p className="text-emerald-800 text-[10px] font-bold font-sans">Coladas</p>
-                <p className="font-extrabold text-emerald-700 text-sm mt-0.5">{totalStickersCount - countedMissing}</p>
+                <p className="text-emerald-800 dark:text-emerald-350 text-[10px] font-bold font-sans">Coladas</p>
+                <p className="font-extrabold text-emerald-700 dark:text-emerald-400 text-sm mt-0.5">{totalStickersCount - countedMissing}</p>
               </div>
-              <div className="bg-amber-50/60 border border-amber-100/80 p-2 rounded-xl flex flex-col justify-center items-center">
+              <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100/80 dark:border-amber-900/30 p-2 rounded-xl flex flex-col justify-center items-center">
                 <span className="bg-amber-500 w-1.5 h-1.5 rounded-full mb-1"></span>
-                <p className="text-amber-800 text-[10px] font-bold font-sans">Faltando</p>
-                <p className="font-extrabold text-amber-700 text-sm mt-0.5">{countedMissing}</p>
+                <p className="text-amber-800 dark:text-amber-350 text-[10px] font-bold font-sans">Faltando</p>
+                <p className="font-extrabold text-amber-700 dark:text-amber-400 text-sm mt-0.5">{countedMissing}</p>
               </div>
-              <div className="bg-blue-50/50 border border-blue-100/80 p-2 rounded-xl flex flex-col justify-center items-center">
+              <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/80 dark:border-blue-900/30 p-2 rounded-xl flex flex-col justify-center items-center">
                 <span className="bg-blue-500 w-1.5 h-1.5 rounded-full mb-1"></span>
-                <p className="text-blue-800 text-[10px] font-bold font-sans">Repetidas</p>
-                <p className="font-extrabold text-blue-700 text-sm mt-0.5">+{totalRepeatedSum}</p>
+                <p className="text-blue-800 dark:text-blue-350 text-[10px] font-bold font-sans">Repetidas</p>
+                <p className="font-extrabold text-blue-700 dark:text-blue-400 text-sm mt-0.5">+{totalRepeatedSum}</p>
               </div>
             </div>
 
             {/* Detailed Selection Progress Accordion */}
-            <div className="mt-4 pt-3.5 border-t border-slate-100">
+            <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800">
               <button 
                 type="button"
                 onClick={() => setIsProgressDetailsExpanded(!isProgressDetailsExpanded)}
-                className="w-full flex items-center justify-between text-xs font-bold text-slate-600 hover:text-slate-850 transition cursor-pointer select-none py-1"
+                className="w-full flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-850 dark:hover:text-slate-200 transition cursor-pointer select-none py-1"
               >
                 <span className="flex items-center gap-1.5 justify-start">
                   <TrendingUp className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
@@ -3846,13 +3902,13 @@ export default function App() {
                           placeholder="Pesquisar seleção..."
                           value={progressSearch}
                           onChange={(e) => setProgressSearch(e.target.value)}
-                          className="w-full text-xs px-3 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white placeholder-slate-400 font-medium font-sans"
+                          className="w-full text-xs px-3 py-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-750 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 font-medium font-sans"
                         />
                         {progressSearch && (
                           <button
                             type="button"
                             onClick={() => setProgressSearch('')}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold font-sans cursor-pointer"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold font-sans cursor-pointer"
                           >
                             ×
                           </button>
@@ -3860,7 +3916,7 @@ export default function App() {
                       </div>
 
                       {/* List of categories progress */}
-                      <div className="max-h-64 overflow-y-auto pr-1 space-y-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                      <div className="max-h-64 overflow-y-auto pr-1 space-y-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent">
                         {progressBySection
                           .filter(sec => 
                             sec.name.toLowerCase().includes(progressSearch.toLowerCase()) ||
@@ -3871,20 +3927,20 @@ export default function App() {
                             return (
                               <div 
                                 key={sec.code}
-                                className="flex items-center justify-between text-[11px] py-1 border-b border-slate-100 last:border-0 hover:bg-slate-50/50 px-1 rounded transition"
+                                className="flex items-center justify-between text-[11px] py-1 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 px-1 rounded transition"
                               >
                                 <div className="flex items-center gap-1.5 min-w-0">
                                   <span className="text-xs shrink-0 select-none">{sec.flagUrl}</span>
-                                  <span className="font-semibold text-slate-700 truncate">{sec.name}</span>
+                                  <span className="font-semibold text-slate-700 dark:text-slate-300 truncate">{sec.name}</span>
                                 </div>
                                 <div className="flex items-center gap-2 font-mono shrink-0">
-                                  <span className="text-slate-500 font-medium font-mono">
+                                  <span className="text-slate-500 dark:text-slate-400 font-medium font-mono">
                                     {labelCode} {sec.obtained}/{sec.total}
                                   </span>
-                                  <span className="text-slate-400 text-[10px] font-mono">({sec.percentage}%)</span>
+                                  <span className="text-slate-400 dark:text-slate-500 text-[10px] font-mono">({sec.percentage}%)</span>
                                   
                                   {/* Minimal side visual bar */}
-                                  <div className="w-8 bg-slate-100 h-1 rounded-full overflow-hidden shrink-0">
+                                  <div className="w-8 bg-slate-100 dark:bg-slate-800 h-1 rounded-full overflow-hidden shrink-0">
                                     <div 
                                       className={`h-full rounded-full ${
                                         sec.percentage === 100 
@@ -3893,7 +3949,7 @@ export default function App() {
                                           ? 'bg-sky-500' 
                                           : sec.percentage > 0 
                                           ? 'bg-amber-500' 
-                                          : 'bg-slate-200'
+                                          : 'bg-slate-200 dark:bg-slate-700'
                                       }`}
                                       style={{ width: `${sec.percentage}%` }}
                                     ></div>
@@ -3917,17 +3973,17 @@ export default function App() {
 
           {/* TAB 1: MEU ÁLBUM CATALOG */}
           {activeTab === 'album' && (
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 md:p-6 shadow-sm flex flex-col gap-6">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 md:p-6 shadow-sm flex flex-col gap-6">
 
               {/* Filter Row Section */}
               <div className="flex flex-col gap-4">
                 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
                   <div>
-                    <h2 className="text-lg font-black text-slate-800">
+                    <h2 className="text-lg font-black text-slate-800 dark:text-slate-100">
                       {albumSubTab === 'selection' ? '📖 Seleção das Figurinhas do Álbum' : '🔄 Minhas Figurinhas Repetidas'}
                     </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {albumSubTab === 'selection' ? 'Navegue pelas seleções da Copa 2026 e marque o seu progresso.' : 'Estoque de cópias repetidas para troca com outros colecionadores.'}
                     </p>
                   </div>
@@ -3936,7 +3992,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setShowPrintChecklist(true)}
-                      className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-850 border border-sky-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      className="px-3 py-1.5 bg-sky-50 dark:bg-sky-950/20 hover:bg-sky-100 dark:hover:bg-sky-900/30 text-sky-850 dark:text-sky-400 border border-sky-200 dark:border-sky-900/40 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
                     >
                       <Printer className="w-3.5 h-3.5 shrink-0" />
                       Imprimir Checklist
@@ -3946,8 +4002,8 @@ export default function App() {
                       onClick={() => setShowImportExport(!showImportExport)}
                       className={`px-3 py-1.5 border rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm ${
                         showImportExport 
-                          ? 'bg-emerald-600 text-white border-emerald-700' 
-                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                          ? 'bg-emerald-600 text-white border-emerald-700 dark:border-emerald-500' 
+                          : 'bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-800 dark:text-emerald-450 border-emerald-200 dark:border-emerald-900/40'
                       }`}
                     >
                       <Share2 className="w-3.5 h-3.5 shrink-0" />
@@ -3960,7 +4016,7 @@ export default function App() {
                 {showHowItWorks && (
                   <div 
                     id="heuristic-guide-card"
-                    className="bg-amber-50/65 border border-amber-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 relative animate-fadeIn"
+                    className="bg-amber-50/65 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 flex flex-col md:flex-row gap-4 relative animate-fadeIn"
                   >
                     <button
                       type="button"
@@ -3968,39 +4024,39 @@ export default function App() {
                         setShowHowItWorks(false);
                         localStorage.setItem('copa_show_guide_nielsen', 'false');
                       }}
-                      className="absolute top-3.5 right-3.5 text-amber-600 hover:text-amber-800 transition cursor-pointer p-1 rounded-full hover:bg-amber-100"
+                      className="absolute top-3.5 right-3.5 text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 transition cursor-pointer p-1 rounded-full hover:bg-amber-100 dark:hover:bg-amber-900/40"
                       title="Fechar Guia de Ajuda"
                     >
                       <X className="w-4 h-4" />
                     </button>
                     <div className="flex gap-2.5 items-start">
-                      <div className="bg-amber-100 text-amber-800 p-2 rounded-xl border border-amber-200">
+                      <div className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 p-2 rounded-xl border border-amber-200 dark:border-amber-900/30">
                         <Lightbulb className="w-5 h-5 shrink-0 animate-pulse" />
                       </div>
                       <div>
-                        <h4 className="font-extrabold text-xs sm:text-sm text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
+                        <h4 className="font-extrabold text-xs sm:text-sm text-amber-900 dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
                           Guia Rápido: Como funciona a Troca Inteligente? 💡
                         </h4>
-                        <p className="text-[11px] text-amber-850 mt-1 max-w-2xl leading-relaxed">
+                        <p className="text-[11px] text-amber-850 dark:text-amber-300/85 mt-1 max-w-2xl leading-relaxed">
                           Siga o fluxo passo a passo para encontrar parceiros de troca e completar seu álbum de forma super rápida e intuitiva.
                         </p>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-3.5">
-                          <div className="bg-white/85 p-2.5 rounded-xl border border-amber-150 shadow-2xs">
-                            <span className="font-black text-amber-700 text-xs block mb-0.5">1. Marque seu Álbum 📖</span>
-                            <span className="text-[10px] text-slate-600 block leading-normal">Indique as figurinhas que você <strong>Falta</strong> ou <strong>Tenho</strong> no catálogo abaixo.</span>
+                          <div className="bg-white/85 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-150 dark:border-amber-900/30 shadow-2xs">
+                            <span className="font-black text-amber-700 dark:text-amber-400 text-xs block mb-0.5">1. Marque seu Álbum 📖</span>
+                            <span className="text-[10px] text-slate-600 dark:text-slate-400 block leading-normal">Indique as figurinhas que você <strong>Falta</strong> ou <strong>Tenho</strong> no catálogo abaixo.</span>
                           </div>
-                          <div className="bg-white/85 p-2.5 rounded-xl border border-amber-150 shadow-2xs">
-                            <span className="font-black text-amber-700 text-xs block mb-0.5">2. Adicione Repetidas 🔄</span>
-                            <span className="text-[10px] text-slate-600 block leading-normal">Selecione o filtro <strong>Repetidas</strong> e indique a quantidade de cópias extras de cada cromo.</span>
+                          <div className="bg-white/85 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-150 dark:border-amber-900/30 shadow-2xs">
+                            <span className="font-black text-amber-700 dark:text-amber-400 text-xs block mb-0.5">2. Adicione Repetidas 🔄</span>
+                            <span className="text-[10px] text-slate-600 dark:text-slate-400 block leading-normal">Selecione o filtro <strong>Repetidas</strong> e indique a quantidade de cópias extras de cada cromo.</span>
                           </div>
-                          <div className="bg-white/85 p-2.5 rounded-xl border border-amber-150 shadow-2xs">
-                            <span className="font-black text-amber-700 text-xs block mb-0.5">3. Encontre Matches ⚽</span>
-                            <span className="text-[10px] text-slate-600 block leading-normal">Nossa inteligência calcula quem quer suas repetidas e tem os cromos que você precisa.</span>
+                          <div className="bg-white/85 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-150 dark:border-amber-900/30 shadow-2xs">
+                            <span className="font-black text-amber-700 dark:text-amber-400 text-xs block mb-0.5">3. Encontre Matches ⚽</span>
+                            <span className="text-[10px] text-slate-600 dark:text-slate-400 block leading-normal">Nossa inteligência calcula quem quer suas repetidas e tem os cromos que você precisa.</span>
                           </div>
-                          <div className="bg-white/85 p-2.5 rounded-xl border border-amber-150 shadow-2xs">
-                            <span className="font-black text-amber-700 text-xs block mb-0.5">4. Combine a Troca ✉️/📱</span>
-                            <span className="text-[10px] text-slate-600 block leading-normal">Abra a aba "Matches de Troca", revise os itens sugeridos e entre em contato direto via e-mail ou WhatsApp.</span>
+                          <div className="bg-white/85 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-150 dark:border-amber-900/30 shadow-2xs">
+                            <span className="font-black text-amber-700 dark:text-amber-400 text-xs block mb-0.5">4. Combine a Troca ✉️/📱</span>
+                            <span className="text-[10px] text-slate-600 dark:text-slate-400 block leading-normal">Abra a aba "Matches de Troca", revise os itens sugeridos e entre em contato direto via e-mail ou WhatsApp.</span>
                           </div>
                         </div>
                       </div>
@@ -4009,14 +4065,14 @@ export default function App() {
                 )}
 
                 {/* PRIMARY SUB-TAB SELECTORS */}
-                <div className="flex bg-slate-100/70 p-1 rounded-xl text-xs font-bold border border-slate-200 font-sans">
+                <div className="flex bg-slate-100/70 dark:bg-slate-800/85 p-1 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-750 font-sans">
                   <button
                     type="button"
                     onClick={() => setAlbumSubTab('selection')}
                     className={`flex-1 py-2 text-center rounded-lg font-extrabold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer ${
                       albumSubTab === 'selection'
-                        ? 'bg-white text-emerald-800 shadow-sm border border-slate-200/60'
-                        : 'text-slate-500 hover:text-slate-800'
+                        ? 'bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-400 shadow-sm border border-slate-200/60 dark:border-slate-800'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100'
                     }`}
                   >
                     <BookOpen className="w-4 h-4 shrink-0" />
@@ -4027,8 +4083,8 @@ export default function App() {
                     onClick={() => setAlbumSubTab('repeated')}
                     className={`flex-1 py-2 text-center rounded-lg font-extrabold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer ${
                       albumSubTab === 'repeated'
-                        ? 'bg-white text-emerald-800 shadow-sm border border-slate-200/60'
-                        : 'text-slate-500 hover:text-slate-800'
+                        ? 'bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-400 shadow-sm border border-slate-200/60 dark:border-slate-800'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100'
                     }`}
                   >
                     <Layers className={`w-4 h-4 shrink-0 ${(Object.values(myStickers) as any[]).some(s => s.status === 'repeated') ? 'text-emerald-500 font-extrabold' : ''}`} />
@@ -4044,15 +4100,15 @@ export default function App() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden border border-emerald-200/80 rounded-2xl bg-gradient-to-br from-emerald-50/15 via-white to-white shadow-sm"
+                      className="overflow-hidden border border-emerald-200/80 dark:border-emerald-800 rounded-2xl bg-gradient-to-br from-emerald-50/15 dark:from-emerald-950/10 via-white dark:via-slate-900 to-white dark:to-slate-900 shadow-sm"
                     >
                       <div className="p-4 md:p-5 flex flex-col gap-4">
-                        <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+                        <div className="flex items-center justify-between border-b border-emerald-100 dark:border-emerald-900/30 pb-3">
                           <div className="flex items-center gap-2">
-                            <Share2 className="w-4 h-4 text-emerald-600 animate-pulse" />
-                            <h3 className="font-extrabold text-sm text-slate-800">Sincronizar Coleção por Texto</h3>
+                            <Share2 className="w-4 h-4 text-emerald-600 dark:text-emerald-450 animate-pulse" />
+                            <h3 className="font-extrabold text-sm text-slate-800 dark:text-slate-100">Sincronizar Coleção por Texto</h3>
                           </div>
-                          <div className="flex bg-slate-100 p-1 rounded-xl text-[10px] font-bold font-mono border border-slate-205">
+                          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-[10px] font-bold font-mono border border-slate-205 dark:border-slate-700">
                             <button
                               type="button"
                               onClick={() => {
@@ -4060,7 +4116,7 @@ export default function App() {
                                 setImportResult(null);
                               }}
                               className={`px-3 py-1 rounded-lg transition cursor-pointer font-bold ${
-                                importExportTab === 'export' ? 'bg-white text-emerald-850 shadow-sm border border-slate-200/80' : 'text-slate-500'
+                                importExportTab === 'export' ? 'bg-white dark:bg-slate-900 text-emerald-850 dark:text-emerald-450 shadow-sm border border-slate-200/80 dark:border-slate-800' : 'text-slate-500 dark:text-slate-400'
                               }`}
                             >
                               Exportar Compartilhamento
@@ -4072,7 +4128,7 @@ export default function App() {
                                 setImportResult(null);
                               }}
                               className={`px-3 py-1 rounded-lg transition cursor-pointer font-bold ${
-                                importExportTab === 'import' ? 'bg-white text-emerald-850 shadow-sm border border-slate-200/80' : 'text-slate-500'
+                                importExportTab === 'import' ? 'bg-white dark:bg-slate-900 text-emerald-850 dark:text-emerald-450 shadow-sm border border-slate-200/80 dark:border-slate-800' : 'text-slate-500 dark:text-slate-400'
                               }`}
                             >
                               Importar Lista
@@ -4083,10 +4139,10 @@ export default function App() {
                         {importExportTab === 'export' ? (
                           <div className="flex flex-col gap-4">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                              <span className="text-slate-500 font-semibold leading-relaxed">
+                              <span className="text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
                                 Selecione qual conjunto de figurinhas você gostaria de exportar e copie o texto gerado para compartilhar com amigos no WhatsApp:
                               </span>
-                              <div className="flex bg-slate-100 p-1 rounded-xl text-[10px] font-mono font-bold shrink-0 border border-slate-200">
+                              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-[10px] font-mono font-bold shrink-0 border border-slate-200 dark:border-slate-700">
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -4094,7 +4150,7 @@ export default function App() {
                                     setCopiedExport(false);
                                   }}
                                   className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                                    exportType === 'repeated' ? 'bg-white text-emerald-800 font-bold border border-slate-200/50 shadow-sm' : 'text-slate-500'
+                                    exportType === 'repeated' ? 'bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-450 font-bold border border-slate-200/50 dark:border-slate-800/55 shadow-sm' : 'text-slate-500 dark:text-slate-400'
                                   }`}
                                 >
                                   Repetidas
@@ -4106,7 +4162,7 @@ export default function App() {
                                     setCopiedExport(false);
                                   }}
                                   className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                                    exportType === 'missing' ? 'bg-white text-amber-800 font-bold border border-slate-200/50 shadow-sm' : 'text-slate-500'
+                                    exportType === 'missing' ? 'bg-white dark:bg-slate-900 text-amber-800 dark:text-amber-400 font-bold border border-slate-200/50 dark:border-slate-800/55 shadow-sm' : 'text-slate-500 dark:text-slate-400'
                                   }`}
                                 >
                                   Faltantes
@@ -4118,14 +4174,14 @@ export default function App() {
                               <textarea
                                 readOnly
                                 value={generateExportText(exportType)}
-                                className="w-full h-44 p-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-700 focus:outline-none resize-none cursor-text select-all"
+                                className="w-full h-44 p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-xs text-slate-700 dark:text-slate-200 focus:outline-none resize-none cursor-text select-all"
                               />
                               <div className="absolute bottom-3 right-3 flex gap-2">
                                 <button
                                   type="button"
                                   onClick={() => setShowQrCode(!showQrCode)}
                                   className={`px-3 py-1.5 rounded-lg text-[11px] font-bold shadow-sm cursor-pointer transition flex items-center gap-1.5 ${
-                                    showQrCode ? 'bg-emerald-600 text-white' : 'bg-white hover:bg-slate-100 border border-slate-250 text-slate-700'
+                                    showQrCode ? 'bg-emerald-600 text-white animate-pulse' : 'bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-250 dark:border-slate-705 text-slate-700 dark:text-slate-300'
                                   }`}
                                 >
                                   <QrCode className="w-3.5 h-3.5" />
@@ -4143,7 +4199,7 @@ export default function App() {
                                     }
                                   }}
                                   className={`px-3 py-1.5 rounded-lg text-[11px] font-bold shadow-sm cursor-pointer transition flex items-center gap-1.5 ${
-                                    copiedExport ? 'bg-emerald-600 text-white' : 'bg-white hover:bg-slate-100 border border-slate-250 text-slate-700'
+                                    copiedExport ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-250 dark:border-slate-705 text-slate-700 dark:text-slate-300'
                                   }`}
                                 >
                                   {copiedExport ? (
@@ -4163,16 +4219,16 @@ export default function App() {
                               <motion.div
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="bg-slate-50 border border-emerald-100 p-5 rounded-2xl flex flex-col items-center justify-center gap-4 text-center"
+                                className="bg-slate-50 dark:bg-slate-800/40 border border-emerald-100 dark:border-emerald-900/30 p-5 rounded-2xl flex flex-col items-center justify-center gap-4 text-center"
                               >
                                 <div>
-                                  <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">QR Code de Compartilhamento</h4>
-                                  <p className="text-[11px] text-slate-500 font-semibold mt-1">
+                                  <h4 className="font-extrabold text-xs text-slate-800 dark:text-slate-250 uppercase tracking-wider">QR Code de Compartilhamento</h4>
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold mt-1">
                                     Peça para seu amigo escanear o QR Code abaixo com a câmera do celular para importar instantaneamente sua lista de figurinhas {exportType === 'repeated' ? 'repetidas' : 'faltantes'}.
                                   </p>
                                 </div>
 
-                                <div className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm relative">
+                                <div className="p-3 bg-white dark:bg-slate-805 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm relative">
                                   <canvas ref={qrCanvasRef} width={200} height={200} className="w-[200px] h-[200px] block" />
                                 </div>
 
@@ -4189,7 +4245,7 @@ export default function App() {
                                       }
                                     }}
                                     className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
-                                      copiedShareLink ? 'bg-emerald-600 text-white' : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-700'
+                                      copiedShareLink ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                                     }`}
                                   >
                                     {copiedShareLink ? (
@@ -4205,7 +4261,7 @@ export default function App() {
                                   <button
                                     type="button"
                                     onClick={() => setShowQrCode(false)}
-                                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-300/55 transition cursor-pointer"
+                                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300/55 dark:border-slate-700 transition cursor-pointer"
                                   >
                                     Fechar
                                   </button>
@@ -4215,7 +4271,7 @@ export default function App() {
                           </div>
                         ) : (
                           <form onSubmit={handleImportStickersSubmit} className="flex flex-col gap-4">
-                            <div className="text-xs text-slate-500 font-semibold leading-relaxed">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
                               Cole aqui a lista de figurinhas recebida no WhatsApp para carregar em sua coleção de uma só vez:
                             </div>
 
@@ -4225,17 +4281,17 @@ export default function App() {
                                   value={importText}
                                   onChange={(e) => setImportText(e.target.value)}
                                   placeholder={`Exemplo de formato para colar:\n\nOlá, estas são minhas figurinhas repetidas:\n\nCAN: 11(2x), 15(1x)\nBRA: 5(1x)\nMAR: 8(1x)`}
-                                  className="w-full h-44 p-3 bg-white border border-slate-250 rounded-xl font-mono text-xs text-slate-700 focus:border-emerald-500 focus:outline-none resize-none"
+                                  className="w-full h-44 p-3 bg-white dark:bg-slate-800 border border-slate-250 dark:border-slate-700 rounded-xl font-mono text-xs text-slate-700 dark:text-slate-200 focus:border-emerald-500 focus:outline-none resize-none"
                                   required
                                 />
                               </div>
 
-                              <div className="md:col-span-4 flex flex-col justify-between gap-3 p-4 bg-slate-50/70 border border-slate-200 rounded-xl text-xs">
+                              <div className="md:col-span-4 flex flex-col justify-between gap-3 p-4 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-750 rounded-xl text-xs">
                                 <div className="space-y-3">
                                   <div>
                                     <span className="block font-mono font-bold text-[10px] text-slate-400 uppercase tracking-wide mb-1">Método de Importação</span>
                                     <div className="flex flex-col gap-1.5 mt-1 font-semibold">
-                                      <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                                      <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                                         <input
                                           type="radio"
                                           name="importMode"
@@ -4246,7 +4302,7 @@ export default function App() {
                                         />
                                         Mesclar com coleções atuais
                                       </label>
-                                      <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                                      <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                                         <input
                                           type="radio"
                                           name="importMode"
@@ -4260,7 +4316,7 @@ export default function App() {
                                     </div>
                                   </div>
 
-                                  <div className="p-2 bg-amber-50/50 border border-amber-100 rounded-lg text-[10px] text-amber-800 leading-normal font-semibold">
+                                  <div className="p-2 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-lg text-[10px] text-amber-800 dark:text-amber-300 leading-normal font-semibold">
                                     💡 <strong>Dica de Auto-Detecção:</strong> O app lê o texto e procura por palavras-chave como "repetidas" ou "faltantes" para saber se salvará como Repetidas ou Faltantes!
                                   </div>
                                 </div>
@@ -4279,8 +4335,8 @@ export default function App() {
                             {importResult && (
                               <div className={`p-3.5 rounded-xl text-xs border font-bold leading-relaxed ${
                                 importResult.success 
-                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
-                                  : 'bg-red-50 border-red-200 text-red-900'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30 text-emerald-900 dark:text-emerald-300' 
+                                  : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/30 text-red-900 dark:text-red-350'
                               }`}>
                                 {importResult.message}
                               </div>
@@ -4295,17 +4351,17 @@ export default function App() {
               {albumSubTab === 'repeated' ? (
                 <div className="flex flex-col gap-6 font-sans">
                   {/* Repeated Header */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                      <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+                      <h3 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                         <span>🔄 Controle de Figurinhas Repetidas</span>
-                        <span className="animate-pulse bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] uppercase font-black px-1.5 py-0.5 rounded">Ativo</span>
+                        <span className="animate-pulse bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/30 text-[10px] uppercase font-black px-1.5 py-0.5 rounded">Ativo</span>
                       </h3>
-                      <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
                         Gerencie suas cópias extras disponíveis para troca. Suas repetidas são usadas automaticamente pelo mecanismo de match!
                       </p>
                     </div>
-                    <div className="bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-xs px-3 py-1.5 rounded-lg font-mono border border-emerald-200 shrink-0">
+                    <div className="bg-emerald-100 dark:bg-emerald-950 hover:bg-emerald-200 dark:hover:bg-emerald-900 text-emerald-950 dark:text-emerald-300 font-black text-xs px-3 py-1.5 rounded-lg font-mono border border-emerald-200 dark:border-emerald-800 shrink-0">
                       Total: {(Object.values(myStickers) as any[]).filter(r => r.status === 'repeated').reduce((acc, curr) => acc + (curr.quantity || 1), 0)} un
                     </div>
                   </div>
@@ -4372,20 +4428,20 @@ export default function App() {
                     return (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-sans animate-fade-in">
                         {/* Card 1: Brilhantes vs Normais */}
-                        <div className="bg-white border border-slate-200 shadow-xs rounded-2xl p-4 flex flex-col justify-between">
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs rounded-2xl p-4 flex flex-col justify-between">
                           <div>
-                            <div className="flex items-center justify-between mb-3 pb-2 border-b border-rose-100/50">
-                              <h4 className="font-extrabold text-xs text-slate-800 flex items-center gap-1.5 uppercase font-mono tracking-wider">
+                            <div className="flex items-center justify-between mb-3 pb-2 border-b border-rose-100/50 dark:border-slate-800">
+                              <h4 className="font-extrabold text-xs text-slate-800 dark:text-slate-250 flex items-center gap-1.5 uppercase font-mono tracking-wider">
                                 <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" /> Tipo de Figurinha
                               </h4>
-                              <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-black font-mono">
+                              <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded font-black font-mono">
                                 {stats_totalUnique} ÚNICAS
                               </span>
                             </div>
 
                             <div className="space-y-4">
                               {/* Visual Progress Stack */}
-                              <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden flex border border-slate-200">
+                              <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden flex border border-slate-200 dark:border-slate-700">
                                 {stats_specialsCopies > 0 && (
                                   <div 
                                     style={{ width: `${(stats_specialsCopies / stats_totalCopies) * 100}%` }}
@@ -4401,28 +4457,28 @@ export default function App() {
                               </div>
 
                               <div className="grid grid-cols-2 gap-2.5">
-                                <div className="bg-gradient-to-br from-amber-50/40 to-amber-50 rounded-xl p-3 border border-amber-100 flex flex-col justify-between">
+                                <div className="bg-gradient-to-br from-amber-50/40 to-amber-50 dark:from-amber-950/20 dark:to-amber-900/10 rounded-xl p-3 border border-amber-100 dark:border-amber-900/40 flex flex-col justify-between">
                                   <div className="flex items-center gap-1">
                                     <span className="text-xs">✨</span>
-                                    <span className="text-[10px] font-black text-amber-800 uppercase tracking-wide">Brilhantes</span>
+                                    <span className="text-[10px] font-black text-amber-800 dark:text-amber-300 uppercase tracking-wide">Brilhantes</span>
                                   </div>
-                                  <div className="mt-2 text-lg font-black text-slate-800 leading-none">
-                                    {stats_specialsCopies} <span className="text-xs font-normal text-slate-500">und</span>
+                                  <div className="mt-2 text-lg font-black text-slate-800 dark:text-amber-250 leading-none">
+                                    {stats_specialsCopies} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">und</span>
                                   </div>
-                                  <div className="text-[9px] text-slate-500 mt-1 font-mono font-bold">
+                                  <div className="text-[9px] text-slate-500 dark:text-slate-400 mt-1 font-mono font-bold">
                                     {stats_totalCopies > 0 ? Math.round((stats_specialsCopies / stats_totalCopies) * 100) : 0}% das repetidas
                                   </div>
                                 </div>
 
-                                <div className="bg-gradient-to-br from-emerald-50/10 to-emerald-50/40 rounded-xl p-3 border border-emerald-100 flex flex-col justify-between">
+                                <div className="bg-gradient-to-br from-emerald-50/10 to-emerald-50/40 dark:from-emerald-950/10 dark:to-emerald-900/10 rounded-xl p-3 border border-emerald-100 dark:border-emerald-900/40 flex flex-col justify-between">
                                   <div className="flex items-center gap-1">
                                     <span className="text-xs">🃏</span>
-                                    <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wide">Normais</span>
+                                    <span className="text-[10px] font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">Normais</span>
                                   </div>
-                                  <div className="mt-2 text-lg font-black text-slate-800 leading-none">
-                                    {stats_normalsCopies} <span className="text-xs font-normal text-slate-500">und</span>
+                                  <div className="mt-2 text-lg font-black text-slate-800 dark:text-emerald-300 leading-none">
+                                    {stats_normalsCopies} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">und</span>
                                   </div>
-                                  <div className="text-[9px] text-slate-500 mt-1 font-mono font-bold">
+                                  <div className="text-[9px] text-slate-500 dark:text-slate-400 mt-1 font-mono font-bold">
                                     {stats_totalCopies > 0 ? Math.round((stats_normalsCopies / stats_totalCopies) * 100) : 0}% das repetidas
                                   </div>
                                 </div>
@@ -4430,48 +4486,48 @@ export default function App() {
                             </div>
                           </div>
 
-                          <div className="mt-4 pt-3 border-t border-slate-100 text-[10px] text-slate-500 leading-relaxed bg-amber-50/[0.15] p-2 rounded-lg border border-amber-500/10">
+                          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed bg-amber-50/[0.15] dark:bg-amber-950/10 p-2 rounded-lg border border-amber-500/10 dark:border-amber-900/20">
                             💡 <strong>Sabia que:</strong> Figurinhas brilhantes (SP/Escudo) são consideradas raras no app e valem o dobro (<strong>2 pontos</strong>) ao calcular o equilíbrio de matches!
                           </div>
                         </div>
 
                         {/* Card 2: Detalhes por Seleção */}
-                        <div className="bg-white border border-slate-200 shadow-xs rounded-2xl p-4 flex flex-col justify-between">
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs rounded-2xl p-4 flex flex-col justify-between">
                           <div>
-                            <div className="flex items-center justify-between mb-3 pb-2 border-b border-rose-100/50">
-                              <h4 className="font-extrabold text-xs text-slate-800 flex items-center gap-1.5 uppercase font-mono tracking-wider">
-                                <TrendingUp className="w-4 h-4 text-emerald-600" /> Detalhes por Seleção
+                            <div className="flex items-center justify-between mb-3 pb-2 border-b border-rose-100/50 dark:border-slate-800">
+                              <h4 className="font-extrabold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5 uppercase font-mono tracking-wider">
+                                <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Detalhes por Seleção
                               </h4>
-                              <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-black font-mono">
+                              <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/35 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded font-black font-mono">
                                 {stats_teamsList.length} SELEÇÕES
                               </span>
                             </div>
 
                             <div className="space-y-1.5 max-h-[145px] overflow-y-auto pr-1">
                               {stats_teamsList.slice(0, 4).map((teamGroup) => (
-                                <div key={teamGroup.teamCode} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition duration-150">
+                                <div key={teamGroup.teamCode} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/40 border border-transparent hover:border-slate-100 dark:hover:border-slate-800 transition duration-150">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <span className="text-lg leading-none select-none">{teamGroup.flagUrl}</span>
                                     <div className="min-w-0">
-                                      <p className="font-extrabold text-xs text-slate-850 truncate">{teamGroup.teamName}</p>
-                                      <p className="text-[9px] text-slate-400 font-bold font-mono">CÓDIGO: {teamGroup.teamCode}</p>
+                                      <p className="font-extrabold text-xs text-slate-850 dark:text-slate-200 truncate">{teamGroup.teamName}</p>
+                                      <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold font-mono">CÓDIGO: {teamGroup.teamCode}</p>
                                     </div>
                                   </div>
 
                                   <div className="flex items-center gap-2 shrink-0">
                                     <div className="flex gap-1.5">
                                       {teamGroup.specialsCount > 0 && (
-                                        <span className="text-[8px] font-bold bg-amber-50/70 text-amber-700 border border-amber-100 px-1 py-0.5 rounded font-mono">
+                                        <span className="text-[8px] font-bold bg-amber-50/70 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-900/30 px-1 py-0.5 rounded font-mono">
                                           ✨ {teamGroup.specialsCount}
                                         </span>
                                       )}
                                       {teamGroup.normalsCount > 0 && (
-                                        <span className="text-[8px] font-bold bg-slate-50 text-slate-500 border border-slate-200 px-1 py-0.5 rounded font-mono">
+                                        <span className="text-[8px] font-bold bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 px-1 py-0.5 rounded font-mono">
                                           🃏 {teamGroup.normalsCount}
                                         </span>
                                       )}
                                     </div>
-                                    <div className="bg-emerald-50 text-emerald-800 border border-emerald-100 text-[10px] font-extrabold font-mono px-2 py-0.5 rounded-lg">
+                                    <div className="bg-emerald-50 dark:bg-emerald-950/25 text-emerald-800 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 text-[10px] font-extrabold font-mono px-2 py-0.5 rounded-lg">
                                       {teamGroup.totalQuantity} un
                                     </div>
                                   </div>
@@ -4479,16 +4535,16 @@ export default function App() {
                               ))}
 
                               {stats_teamsList.length > 4 && (
-                                <div className="text-center py-1 bg-slate-50 border border-slate-100 rounded-lg text-[9px] text-slate-500 font-bold">
+                                <div className="text-center py-1 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-lg text-[9px] text-slate-500 dark:text-slate-400 font-bold">
                                   + {stats_teamsList.length - 4} outras seleções com repetidas
                                 </div>
                               )}
                             </div>
                           </div>
 
-                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
                             <span>Maior estoque de repetidas:</span>
-                            <span className="font-extrabold text-slate-800 flex items-center gap-1 leading-none">
+                            <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1 leading-none">
                               {stats_teamsList[0]?.flagUrl} {stats_teamsList[0]?.teamName} ({stats_teamsList[0]?.totalQuantity} un)
                             </span>
                           </div>
@@ -4498,13 +4554,13 @@ export default function App() {
                   })()}
 
                   {/* Fast Add form */}
-                  <form onSubmit={handleFastAddRepeated} className="bg-slate-50/60 border border-dashed border-slate-300 p-4 rounded-2xl flex flex-col gap-3">
+                  <form onSubmit={handleFastAddRepeated} className="bg-slate-50/60 dark:bg-slate-800/20 border border-dashed border-slate-300 dark:border-slate-800 p-4 rounded-2xl flex flex-col gap-3">
                     <div className="flex flex-col gap-1.5 font-sans">
-                      <label className="text-[10px] uppercase font-black tracking-wider text-slate-500">
+                      <label className="text-[10px] uppercase font-black tracking-wider text-slate-500 dark:text-slate-400">
                         ⚡ Adicionar Novas Repetidas Rapidamente
                       </label>
-                      <p className="text-[10px] text-slate-400">
-                        Digite o código da figurinha oficial (Ex: <span className="font-mono bg-slate-100 px-1 py-0.5 rounded text-slate-650">BRA-05</span> ou separe por vírgulas <span className="font-mono bg-slate-100 px-1 py-0.5 rounded text-slate-650 font-bold">BRA-05, FIFA-01, URU-03</span>)
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                        Digite o código da figurinha oficial (Ex: <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-slate-650 dark:text-slate-350">BRA-05</span> ou separe por vírgulas <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-slate-650 dark:text-slate-350 font-bold">BRA-05, FIFA-01, URU-03</span>)
                       </p>
                     </div>
 
@@ -4514,7 +4570,7 @@ export default function App() {
                         placeholder="Código de figurinha oficial..."
                         value={fastAddCode}
                         onChange={(e) => setFastAddCode(e.target.value)}
-                        className="flex-1 px-3 py-2 bg-white border border-slate-250 rounded-xl focus:border-emerald-500 focus:outline-none text-xs text-slate-700 font-mono"
+                        className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded-xl focus:border-emerald-500 focus:outline-none text-xs text-slate-700 dark:text-slate-200 font-mono"
                       />
                       <button
                         type="submit"
@@ -4558,10 +4614,10 @@ export default function App() {
 
                     if (repeatedStickers.length === 0) {
                       return (
-                        <div className="border border-slate-150 rounded-2xl p-8 text-center text-slate-400 font-medium font-sans">
+                        <div className="border border-slate-150 dark:border-slate-800 rounded-2xl p-8 text-center text-slate-400 dark:text-slate-500 font-medium font-sans">
                           <p className="text-sm">Nenhuma figurinha repetida {searchText ? 'encontrada na pesquisa' : 'cadastrada'}.</p>
                           {!searchText && (
-                            <p className="text-xs text-slate-400/80 mt-1.5 font-bold leading-relaxed">
+                            <p className="text-xs text-slate-400/80 dark:text-slate-500 mt-1.5 font-bold leading-relaxed">
                               DICA: Você pode marcar suas repetidas navegando no álbum na aba principal <strong>"📖 Seleção do Álbum"</strong> ou digitar o código delas no campo de adição rápida acima!
                             </p>
                           )}
@@ -4611,21 +4667,21 @@ export default function App() {
                         {sortedGroups.map((group) => {
                           const isExpanded = !collapsedRepeatedTeams[group.teamCode];
                           return (
-                            <div key={group.teamCode} className="border border-slate-200 rounded-2xl bg-white overflow-hidden shadow-2xs">
+                            <div key={group.teamCode} className="border border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
                               <button
                                 type="button"
                                 onClick={() => toggleGroup(group.teamCode)}
-                                className="w-full flex items-center justify-between p-3 bg-slate-50/50 hover:bg-slate-100/50 active:bg-slate-100 transition select-none cursor-pointer border-b border-slate-100"
+                                className="w-full flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-100/50 dark:hover:bg-slate-800/60 active:bg-slate-100 dark:active:bg-slate-850 transition select-none cursor-pointer border-b border-slate-100 dark:border-slate-800"
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="text-xl leading-none select-none">{group.flagUrl}</span>
                                   <div className="text-left">
-                                    <span className="font-extrabold text-xs text-slate-800">{group.teamName}</span>
-                                    <span className="text-[10px] font-bold text-slate-400 font-mono ml-1.5">({group.teamCode})</span>
+                                    <span className="font-extrabold text-xs text-slate-800 dark:text-slate-100">{group.teamName}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono ml-1.5">({group.teamCode})</span>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-100 font-mono">
+                                  <span className="text-[10px] font-extrabold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-900/30 font-mono">
                                     {group.stickers.length} {group.stickers.length === 1 ? 'figurinha' : 'figurinhas'} ({group.stickers.reduce((sum, s) => sum + (s.quantity || 1), 0)} un)
                                   </span>
                                   {isExpanded ? (
@@ -4637,48 +4693,48 @@ export default function App() {
                               </button>
 
                               {isExpanded && (
-                                <div className="p-2.5 bg-white">
+                                <div className="p-2.5 bg-white dark:bg-slate-900">
                                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                                     {group.stickers.map(item => {
                                       if (!item.originalSt) return null;
                                       return (
                                         <div 
                                           key={item.stickerId}
-                                          className="flex items-center justify-between gap-1.5 p-1.5 bg-slate-50/70 hover:bg-slate-100/80 border border-slate-150 rounded-xl transition duration-150"
+                                          className="flex items-center justify-between gap-1.5 p-1.5 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100/80 dark:hover:bg-slate-800/85 border border-slate-150 dark:border-slate-800 rounded-xl transition duration-150"
                                         >
                                           <div className="flex items-center gap-1.5 min-w-0">
-                                            <div className={`w-7 h-7 rounded-lg text-[10px] font-mono font-black flex items-center justify-center shrink-0 ${item.originalSt.isSpecial ? 'bg-amber-100 border border-amber-300 text-amber-800' : 'bg-slate-200 border border-slate-300 text-slate-700'}`}>
+                                            <div className={`w-7 h-7 rounded-lg text-[10px] font-mono font-black flex items-center justify-center shrink-0 ${item.originalSt.isSpecial ? 'bg-amber-100 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-900 text-amber-800 dark:text-amber-300' : 'bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'}`}>
                                               {item.originalSt.number}
                                             </div>
                                             <div className="min-w-0">
-                                              <p className="font-extrabold text-[11px] text-slate-850 truncate leading-tight select-none">
+                                              <p className="font-extrabold text-[11px] text-slate-850 dark:text-slate-200 truncate leading-tight select-none">
                                                 {item.originalSt.name}
                                               </p>
-                                              <p className="text-[9px] font-bold font-mono text-slate-450 leading-none flex items-center gap-1 mt-0.5">
+                                              <p className="text-[9px] font-bold font-mono text-slate-450 dark:text-slate-500 leading-none flex items-center gap-1 mt-0.5">
                                                 {item.stickerId}
-                                                {item.originalSt.isSpecial && <span className="text-[7.5px] font-black text-amber-600 bg-amber-50 px-0.5 rounded border border-amber-200">✨ SP</span>}
+                                                {item.originalSt.isSpecial && <span className="text-[7.5px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 px-0.5 rounded border border-amber-200 dark:border-amber-900/40">✨ SP</span>}
                                               </p>
                                             </div>
                                           </div>
 
                                           <div className="flex items-center gap-1.5 shrink-0">
                                             {/* Quantity Selector */}
-                                            <div className="flex items-center bg-white border border-slate-200 p-0.5 rounded-lg shadow-2xs">
+                                            <div className="flex items-center bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-0.5 rounded-lg shadow-2xs">
                                               <button
                                                 type="button"
                                                 onClick={() => handleIncrementQuantity(item.stickerId, -1)}
-                                                className="w-4.5 h-4.5 rounded bg-slate-50 hover:bg-slate-100 text-slate-600 active:bg-slate-250 text-[10px] font-black flex items-center justify-center cursor-pointer select-none transition"
+                                                className="w-4.5 h-4.5 rounded bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 active:bg-slate-250 dark:active:bg-slate-700 text-[10px] font-black flex items-center justify-center cursor-pointer select-none transition"
                                                 title="Diminuir (0 move para Adquiridas)"
                                               >
                                                 -
                                               </button>
-                                              <span className="text-[10px] font-black font-mono w-4.5 text-center text-slate-850">
+                                              <span className="text-[10px] font-black font-mono w-4.5 text-center text-slate-850 dark:text-slate-200">
                                                 {item.quantity || 1}
                                               </span>
                                               <button
                                                 type="button"
                                                 onClick={() => handleIncrementQuantity(item.stickerId, 1)}
-                                                className="w-4.5 h-4.5 rounded bg-slate-50 hover:bg-slate-100 text-slate-600 active:bg-slate-250 text-[10px] font-black flex items-center justify-center cursor-pointer select-none transition"
+                                                className="w-4.5 h-4.5 rounded bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 active:bg-slate-250 dark:active:bg-slate-700 text-[10px] font-black flex items-center justify-center cursor-pointer select-none transition"
                                                 title="Aumentar"
                                               >
                                                 +
@@ -4690,7 +4746,7 @@ export default function App() {
                                               type="button"
                                               onClick={() => handleSetStickerStatus(item.stickerId, 'missing')}
                                               title="Remover repetida"
-                                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition cursor-pointer"
+                                              className="p-1 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 border border-transparent hover:border-rose-100 dark:hover:border-rose-900/35 rounded-lg transition cursor-pointer"
                                             >
                                               <Trash2 className="w-3.5 h-3.5" />
                                             </button>
@@ -5693,42 +5749,42 @@ export default function App() {
             <div className="flex flex-col gap-5">
               
               {/* Regulamento de Valoração de Trocas (Mercado da Copa do Mundo) */}
-              <div className="bg-[#FFFDF3] border border-amber-200/80 p-5 rounded-2xl shadow-sm relative overflow-hidden">
+              <div className="bg-[#FFFDF3] dark:bg-slate-900/40 border border-amber-200/80 dark:border-amber-900/40 p-5 rounded-2xl shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl -z-10"></div>
-                <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-amber-850 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-amber-700 shrink-0" /> Regulamento de Valoração e Troca Justa (Copa do Mundo 2026)
+                <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-amber-850 dark:text-amber-450 flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-amber-700 dark:text-amber-500 shrink-0" /> Regulamento de Valoração e Troca Justa (Copa do Mundo 2026)
                 </h3>
-                <p className="text-xs text-slate-600 mt-2 leading-relaxed font-semibold">
+                <p className="text-xs text-slate-600 dark:text-slate-350 mt-2 leading-relaxed font-semibold">
                   Para facilitar e enriquecer as negociações no álbum da Copa, as figurinhas do app possuem coeficientes de valoração automática baseados nas regras de troca padrão do mercado:
                 </p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-xs">
-                  <div className="bg-white p-3.5 rounded-xl border border-amber-100/80 flex flex-col justify-between shadow-sm">
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-amber-100/80 dark:border-amber-900/30 flex flex-col justify-between shadow-sm">
                     <div>
-                      <span className="block font-black text-amber-900 text-xs text-amber-850">✨ Figurinhas Metalizadas</span>
-                      <span className="text-[10px] text-amber-700 font-mono font-bold mt-1.5 block bg-amber-50 px-1.5 py-0.5 rounded border border-amber-150/60 w-fit">Coeficiente de Valor: 2 Pontos</span>
+                      <span className="block font-black text-amber-900 dark:text-amber-450 text-xs">✨ Figurinhas Metalizadas</span>
+                      <span className="text-[10px] text-amber-700 dark:text-amber-300 font-mono font-bold mt-1.5 block bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-150/60 dark:border-amber-900/50 w-fit">Coeficiente de Valor: 2 Pontos</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-2 font-mono leading-relaxed">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-mono leading-relaxed">
                       Inclui todos os Escudos das Seleções (USA1, BRA1...) e Especiais FIFA (00, FWC1 a FWC19).
                     </p>
                   </div>
                   
-                  <div className="bg-white p-3.5 rounded-xl border border-emerald-100/80 flex flex-col justify-between shadow-sm">
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-emerald-100/80 dark:border-emerald-900/30 flex flex-col justify-between shadow-sm">
                     <div>
-                      <span className="block font-black text-emerald-900 text-xs text-emerald-850 font-bold">⚽ Figurinhas Normais</span>
-                      <span className="text-[10px] text-emerald-700 font-mono font-bold mt-1.5 block bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-150/60 w-fit">Coeficiente de Valor: 1 Ponto</span>
+                      <span className="block font-black text-emerald-900 dark:text-emerald-400 text-xs font-bold">⚽ Figurinhas Normais</span>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-mono font-bold mt-1.5 block bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-150/60 dark:border-emerald-900/50 w-fit">Coeficiente de Valor: 1 Ponto</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-2 font-mono leading-relaxed">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-mono leading-relaxed">
                       Atletas convencionais de todas as seleções e Figurinhas da Coca-Cola (CC1 a CC14) que compõem o álbum.
                     </p>
                   </div>
 
-                  <div className="bg-white p-3.5 rounded-xl border border-sky-100 flex flex-col justify-between shadow-sm">
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-sky-100 dark:border-sky-900/30 flex flex-col justify-between shadow-sm">
                     <div>
-                      <span className="block font-black text-sky-900 text-xs text-sky-850 font-bold">⚖️ Regras de Paridade de Troca</span>
-                      <span className="text-[10px] text-sky-700 font-mono font-bold mt-1.5 block bg-sky-50 px-1.5 py-0.5 rounded border border-sky-150/60 w-fit">1 Metalizada = 2 Normais</span>
+                      <span className="block font-black text-sky-900 dark:text-sky-450 text-xs font-bold">⚖️ Regras de Paridade de Troca</span>
+                      <span className="text-[10px] text-sky-700 dark:text-sky-300 font-mono font-bold mt-1.5 block bg-sky-50 dark:bg-sky-950/40 px-1.5 py-0.5 rounded border border-sky-150/60 dark:border-sky-900/50 w-fit">1 Metalizada = 2 Normais</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1.5 font-mono leading-relaxed font-semibold">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono leading-relaxed font-semibold">
                       • Normal por Normal: as trocas são 1-por-1.<br/>
                       • Metalizada por Metalizada: as trocas são 1-por-1.
                     </p>
@@ -6678,6 +6734,63 @@ export default function App() {
 
                 </form>
 
+                {/* --- SEÇÃO DE CONFIGURAÇÃO DE COR DE DESTAQUE --- */}
+                <hr className="border-slate-100 dark:border-slate-800 my-6" />
+
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                      <span className="text-base">🎨</span> Cor de Destaque do Álbum
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
+                      Escolha uma cor de destaque personalizada para aplicar nos gradientes de fundo, botões e elementos principais do seu álbum.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                    {[
+                      { id: 'emerald', label: 'Verde Amazônia', class: 'bg-[#10b981] border-[#059669]', ring: 'ring-[#10b981]', desc: 'Tema clássico da Copa' },
+                      { id: 'blue', label: 'Azul Campeão', class: 'bg-[#3b82f6] border-[#2563eb]', ring: 'ring-[#3b82f6]', desc: 'Estilo clássico esportivo' },
+                      { id: 'amber', label: 'Amarelo Ouro', class: 'bg-[#f59e0b] border-[#d97706]', ring: 'ring-[#f59e0b]', desc: 'Brilho de campeão' },
+                      { id: 'rose', label: 'Vermelho Fúria', class: 'bg-[#f43f5e] border-[#e11d48]', ring: 'ring-[#f43f5e]', desc: 'Energia e paixão nacional' },
+                      { id: 'purple', label: 'Roxo Realeza', class: 'bg-[#a855f7] border-[#9333ea]', ring: 'ring-[#a855f7]', desc: 'Raridade e sofisticação' }
+                    ].map(col => (
+                      <button
+                        key={col.id}
+                        type="button"
+                        onClick={() => {
+                          setAccentColor(col.id);
+                          triggerNotification(
+                            "Visual Atualizado! 🎨",
+                            `Seu álbum agora está brilhando no estilo ${col.label}.`
+                          );
+                        }}
+                        className={`p-3 rounded-2xl border text-left flex flex-col gap-2 transition-all cursor-pointer relative ${
+                          accentColor === col.id
+                            ? `bg-slate-50 dark:bg-slate-800 border-slate-350 dark:border-slate-700 ring-2 ring-offset-2 dark:ring-offset-slate-900 ${col.id === 'emerald' ? 'ring-emerald-400' : col.id === 'blue' ? 'ring-blue-400' : col.id === 'amber' ? 'ring-amber-400' : col.id === 'rose' ? 'ring-rose-400' : 'ring-purple-400'}`
+                            : 'bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className={`w-5 h-5 rounded-full border ${col.class} flex items-center justify-center shrink-0`}>
+                            {accentColor === col.id && (
+                              <Check className="w-3.5 h-3.5 text-white stroke-[4]" />
+                            )}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-[11px] font-black text-slate-800 dark:text-slate-100 leading-tight">
+                            {col.label}
+                          </span>
+                          <span className="block text-[9px] text-slate-450 dark:text-slate-400 font-medium leading-tight mt-0.5">
+                            {col.desc}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* --- SEÇÃO DE HISTÓRICO DE TROCAS --- */}
                 <hr className="border-slate-100 my-6" />
 
@@ -6975,6 +7088,7 @@ export default function App() {
               allStickersRecords={allStickersRecords}
               allUsers={allUsers}
               user={user}
+              accentColor={accentColor}
             />
           )}
 

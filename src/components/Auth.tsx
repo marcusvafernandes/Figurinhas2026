@@ -165,44 +165,44 @@ export default function Auth({ onSuccess }: AuthProps) {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-800 font-sans">
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-150">
       
       {/* Visual Left Banner */}
-      <div className="md:w-1/2 flex flex-col justify-between p-8 md:p-16 bg-gradient-to-br from-emerald-50 via-sky-50 to-amber-50 relative overflow-hidden border-b md:border-b-0 md:border-r border-slate-200/60 shadow-sm animate-fade-in">
-        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#2e7d32_1px,transparent_1px)] [background-size:24px_24px]"></div>
+      <div className="md:w-1/2 flex flex-col justify-between p-8 md:p-16 bg-gradient-to-br from-emerald-50 via-sky-50 to-amber-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 relative overflow-hidden border-b md:border-b-0 md:border-r border-slate-200/60 dark:border-slate-800 shadow-sm animate-fade-in">
+        <div className="absolute inset-0 opacity-15 dark:opacity-5 bg-[radial-gradient(#2e7d32_1px,transparent_1px)] [background-size:24px_24px]"></div>
         
         {/* Top Branding Header */}
         <div className="relative z-10">
           {/* Logo / Icon presentation */}
           <div className="flex items-center gap-3.5 mb-5 select-none animate-fade-in">
-            <div className="relative p-1 bg-white rounded-2xl shadow-sm border border-emerald-100 shrink-0">
+            <div className="relative p-1 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-emerald-100 dark:border-slate-700 shrink-0">
               <img 
                 src="/app_icon.png" 
                 alt="Logo Figurinhas Copa 2026" 
                 className="w-12 h-12 rounded-xl object-cover"
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white px-1.5 rounded-full border-2 border-white text-[8px] font-black font-mono shadow-xs">
+              <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white px-1.5 rounded-full border-2 border-white dark:border-slate-800 text-[8px] font-black font-mono shadow-xs">
                 26
               </div>
             </div>
-            <div className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/60 text-emerald-850 text-[10px] font-bold uppercase tracking-wider font-mono">
+            <div className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 text-emerald-850 dark:text-emerald-300 text-[10px] font-bold uppercase tracking-wider font-mono">
               🤝 Troca Inteligente
             </div>
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-none bg-gradient-to-r from-emerald-600 via-sky-600 to-amber-500 bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-none bg-gradient-to-r from-emerald-600 via-sky-600 to-amber-500 dark:from-emerald-400 dark:via-sky-400 dark:to-amber-400 bg-clip-text text-transparent">
             Figurinhas Copa 2026
           </h1>
-          <p className="mt-4 text-slate-600 max-w-sm text-sm md:text-base leading-relaxed">
+          <p className="mt-4 text-slate-600 dark:text-slate-350 max-w-sm text-sm md:text-base leading-relaxed">
             Gerencie seu álbum, marque suas figurinhas repetidas e faltantes, e encontre trocas perfeitas de forma 100% automatizada.
           </p>
         </div>
 
         {/* Potencial de Troca / Live Stats */}
         {hasVisited && (
-          <div id="live_stats_card" className="relative z-10 my-6 bg-white/60 backdrop-blur-md rounded-2xl p-4 border border-emerald-100/80 shadow-sm animate-fade-in">
-            <p className="text-[10px] font-mono uppercase font-extrabold tracking-wider text-emerald-800 mb-3 flex items-center gap-1.5">
+          <div id="live_stats_card" className="relative z-10 my-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md rounded-2xl p-4 border border-emerald-100/80 dark:border-slate-800 shadow-sm animate-fade-in">
+            <p className="text-[10px] font-mono uppercase font-extrabold tracking-wider text-emerald-800 dark:text-emerald-400 mb-3 flex items-center gap-1.5">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -210,20 +210,20 @@ export default function Auth({ onSuccess }: AuthProps) {
               Atividade Geral do Sistema
             </p>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/90 p-3.5 rounded-xl border border-slate-200/60 flex flex-col shadow-sm">
-                <span className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight font-sans">
+              <div className="bg-white/90 dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col shadow-sm">
+                <span className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight font-sans">
                   <span className="animate-fade-in">{totals.users}</span>
                 </span>
-                <span className="text-[11px] text-slate-500 font-bold mt-1">Colecionadores</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-1">Colecionadores</span>
               </div>
-              <div className="bg-white/90 p-3.5 rounded-xl border border-slate-200/60 flex flex-col shadow-sm">
-                <span className="text-2xl md:text-3xl font-black text-emerald-700 tracking-tight font-sans">
+              <div className="bg-white/90 dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col shadow-sm">
+                <span className="text-2xl md:text-3xl font-black text-emerald-700 dark:text-emerald-400 tracking-tight font-sans">
                   <span className="animate-fade-in">{totals.repeated}</span>
                 </span>
-                <span className="text-[11px] text-slate-500 font-bold mt-1">Figurinhas Repetidas</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-1">Figurinhas Repetidas</span>
               </div>
             </div>
-            <p className="text-[10px] text-slate-500 mt-3 leading-normal font-medium">
+            <p className="text-[10px] text-slate-500 dark:text-slate-450 mt-3 leading-normal font-medium">
               🔥 Trocas 1x1 recíprocas são calculadas em tempo real assim que você adiciona suas figurinhas repetidas e faltantes!
             </p>
           </div>
@@ -232,49 +232,49 @@ export default function Auth({ onSuccess }: AuthProps) {
         {/* Feature List */}
         <div className="relative z-10 my-10 space-y-4">
           <div className="flex items-start gap-3">
-            <div className="p-1 rounded-md bg-emerald-100 text-emerald-800 mt-0.5 animate-pulse">
+            <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-350 mt-0.5 animate-pulse">
               <Check className="w-4 h-4" />
             </div>
             <div>
-              <p className="font-bold text-slate-800 text-sm">Controle de Álbum Completo</p>
-              <p className="text-xs text-slate-500">Marque todas as seleções e especiais com sincronização em tempo real na nuvem.</p>
+              <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">Controle de Álbum Completo</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Marque todas as seleções e especiais com sincronização em tempo real na nuvem.</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <div className="p-1 rounded-md bg-emerald-100 text-emerald-800 mt-0.5">
+            <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-350 mt-0.5">
               <Check className="w-4 h-4" />
             </div>
             <div>
-              <p className="font-bold text-slate-800 text-sm">Match de Troca Perfeito</p>
-              <p className="text-xs text-slate-500">Descubra automaticamente outros colecionadores com quem você tem trocas mútuas exatas.</p>
+              <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">Match de Troca Perfeito</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Descubra automaticamente outros colecionadores com quem você tem trocas mútuas exatas.</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <div className="p-1 rounded-md bg-emerald-100 text-emerald-800 mt-0.5">
+            <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-350 mt-0.5">
               <Check className="w-4 h-4" />
             </div>
             <div>
-              <p className="font-bold text-slate-800 text-sm">Negociação Direta & Trocas</p>
-              <p className="text-xs text-slate-500">Identificação das figurinhas dos outros colecionadores que faltam e contato ágil para combinar a troca.</p>
+              <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">Negociação Direta & Trocas</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Identificação das figurinhas dos outros colecionadores que faltam e contato ágil para combinar a troca.</p>
             </div>
           </div>
         </div>
 
         {/* Bottom design credits */}
-        <div className="relative z-10 space-y-1 text-xs text-slate-400 font-mono">
+        <div className="relative z-10 space-y-1 text-xs text-slate-400 dark:text-slate-500 font-mono">
           <p>© 2026 Copa Sticker Matcher Engine. Todos os direitos reservados.</p>
-          <p className="text-[11px] font-sans font-bold text-slate-500 flex items-center gap-1.5">
-            👨‍💻 Criado por <span className="text-emerald-800 font-extrabold">Marcus Fernandes</span>
+          <p className="text-[11px] font-sans font-bold text-slate-500 dark:text-slate-450 flex items-center gap-1.5">
+            👨‍💻 Criado por <span className="text-emerald-800 dark:text-emerald-400 font-extrabold">Marcus Fernandes</span>
           </p>
         </div>
       </div>
 
       {/* Auth Interaction Form Panel */}
-      <div className="md:w-1/2 flex items-center justify-center p-8 md:p-16 bg-white relative">
-        <div id="auth_card" className="w-full max-w-md bg-white border border-slate-200/80 rounded-2xl p-6 md:p-8 shadow-xl relative">
+      <div className="md:w-1/2 flex items-center justify-center p-8 md:p-16 bg-white dark:bg-slate-900 relative transition-colors duration-150">
+        <div id="auth_card" className="w-full max-w-md bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-850 rounded-2xl p-6 md:p-8 shadow-xl relative transition-colors duration-150">
           
           <div className="text-center mb-8 flex flex-col items-center">
-            <div className="relative p-0.5 bg-white rounded-xl shadow-xs border border-slate-100 mb-3 select-none md:hidden block shrink-0">
+            <div className="relative p-0.5 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-100 dark:border-slate-750 mb-3 select-none md:hidden block shrink-0">
               <img 
                 src="/app_icon.png" 
                 alt="Logo Copa 2026" 
@@ -282,40 +282,40 @@ export default function Auth({ onSuccess }: AuthProps) {
                 referrerPolicy="no-referrer"
               />
             </div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-800">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
               Conectar Conta Firebase
             </h2>
-            <p className="text-slate-500 text-xs mt-1">
+            <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
               Faça login para salvar seus dados do álbum de figurinhas permanentemente
             </p>
           </div>
 
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex flex-col gap-3 animate-fade-in">
+            <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 text-red-800 dark:text-red-300 text-xs flex flex-col gap-3 animate-fade-in">
               <div className="flex items-start gap-3">
-                <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                 <span className="font-semibold">{error}</span>
               </div>
               
               {showConfigGuide && (
-                <div id="bypass_guide" className="mt-2 pt-2 border-t border-red-200/60 flex flex-col gap-2 text-slate-700">
+                <div id="bypass_guide" className="mt-2 pt-2 border-t border-red-200/60 dark:border-red-900/30 flex flex-col gap-2 text-slate-700 dark:text-slate-300">
                   <p className="leading-relaxed">
                     Por padrão, os projetos do Firebase exigem ativação manual do provedor de e-mail/senha.
                   </p>
-                  <p className="font-medium text-slate-800">
+                  <p className="font-medium text-slate-800 dark:text-slate-200">
                     Como ativar no Firebase Console:
                   </p>
                   <ol className="list-decimal pl-4 space-y-1.5 text-[11px]">
                     <li>Acesse o Firebase Console.</li>
-                    <li>Vá em <strong className="text-emerald-700">Authentication</strong> e clique na aba <strong className="text-emerald-700">Sign-in method</strong>.</li>
-                    <li>Clique em <strong className="text-emerald-700">Adicionar novo provedor</strong> e selecione <strong className="text-emerald-700">E-mail/Senha</strong>.</li>
+                    <li>Vá em <strong className="text-emerald-700 dark:text-emerald-400">Authentication</strong> e clique na aba <strong className="text-emerald-700 dark:text-emerald-400">Sign-in method</strong>.</li>
+                    <li>Clique em <strong className="text-emerald-700 dark:text-emerald-400">Adicionar novo provedor</strong> e selecione <strong className="text-emerald-700 dark:text-emerald-400">E-mail/Senha</strong>.</li>
                     <li>Ative o provedor e clique em salvar.</li>
                   </ol>
-                  <p className="mt-1 font-bold text-slate-800">
+                  <p className="mt-1 font-bold text-slate-800 dark:text-slate-200">
                     💡 Alternativa Imediata:
                   </p>
                   <p>
-                    O <strong className="text-emerald-700">Login com Google</strong> já está ativo e funciona instantaneamente em qualquer projeto sem configurações extras!
+                    O <strong className="text-emerald-700 dark:text-emerald-400">Login com Google</strong> já está ativo e funciona instantaneamente em qualquer projeto sem configurações extras!
                   </p>
                 </div>
               )}
@@ -333,80 +333,80 @@ export default function Auth({ onSuccess }: AuthProps) {
               <Rocket className="w-4 h-4 text-white animate-pulse" />
               Entrar com Conta Google (Instantâneo)
             </button>
-            <p className="text-[10px] text-center text-slate-400 font-mono">
+            <p className="text-[10px] text-center text-slate-400 dark:text-slate-550 font-mono">
               ★ Recomendado
             </p>
           </div>
 
           <div className="relative my-6 flex items-center justify-center">
-            <span className="absolute inset-x-0 h-px bg-slate-200"></span>
-            <span className="relative bg-white px-3 text-[10px] uppercase font-mono font-bold tracking-wider text-slate-400">Ou use credenciais</span>
+            <span className="absolute inset-x-0 h-px bg-slate-200 dark:bg-slate-800"></span>
+            <span className="relative bg-white dark:bg-slate-950 px-3 text-[10px] uppercase font-mono font-bold tracking-wider text-slate-400 dark:text-slate-500">Ou use credenciais</span>
           </div>
 
           {/* Credentials Email/Password Form */}
           <form onSubmit={handleEmailAuth} className="space-y-4">
             {isRegister && (
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Seu Nome / Apelido *</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Seu Nome / Apelido *</label>
                 <input 
                   type="text" 
                   autoComplete="name"
                   placeholder="Ex: Marcus"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 text-sm placeholder:text-slate-400 transition"
+                  className="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 dark:text-slate-100 text-sm placeholder:text-slate-400 dark:placeholder:text-slate-550 transition"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">E-mail *</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">E-mail *</label>
               <input 
                 type="email" 
                 autoComplete="email"
                 placeholder="nome@exemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 text-sm placeholder:text-slate-400 transition"
+                className="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 dark:text-slate-100 text-sm placeholder:text-slate-400 dark:placeholder:text-slate-550 transition"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Senha *</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Senha *</label>
               <input 
                 type="password" 
                 autoComplete="current-password"
                 placeholder="Mínimo 6 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 text-sm placeholder:text-slate-400 transition"
+                className="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 dark:text-slate-100 text-sm placeholder:text-slate-400 dark:placeholder:text-slate-550 transition"
               />
             </div>
 
             {isRegister && (
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center justify-between">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center justify-between">
                   <span>WhatsApp / Telefone para Contato</span>
-                  <span className="text-[10px] text-emerald-600 font-bold font-mono">(Recomendado)</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold font-mono">(Recomendado)</span>
                 </label>
                 <div className="relative">
-                  <PhoneCall className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <PhoneCall className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-3.5" />
                   <input 
                      type="tel" 
                      placeholder="Ex: 11988880001"
                      value={whatsapp}
                      onChange={(e) => setWhatsapp(e.target.value)}
-                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 text-sm placeholder:text-slate-400 transition"
+                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 dark:text-slate-100 text-sm placeholder:text-slate-400 dark:placeholder:text-slate-550 transition"
                   />
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1">Facilita a negociação direta com colecionadores por WhatsApp.</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Facilita a negociação direta com colecionadores por WhatsApp.</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-sm transition shadow-sm flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-55"
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl font-bold text-sm transition shadow-sm flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-55"
             >
               <LogIn className="w-4 h-4" />
               {loading ? 'Processando...' : isRegister ? 'Cadastrar e Entrar' : 'Entrar com E-mail'}
@@ -422,7 +422,7 @@ export default function Auth({ onSuccess }: AuthProps) {
                 setError(null);
                 setShowConfigGuide(false);
               }}
-              className="text-xs text-emerald-600 hover:underline hover:text-emerald-700 font-bold transition"
+              className="text-xs text-emerald-600 hover:underline hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-350 font-bold transition"
             >
               {isRegister ? 'Já tem conta? Entre aqui' : 'Não tem conta? Cadastre-se aqui'}
             </button>
@@ -430,8 +430,8 @@ export default function Auth({ onSuccess }: AuthProps) {
 
         </div>
 
-        <p className="absolute bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 font-mono text-center w-full block md:hidden whitespace-nowrap">
-          Criado por <span className="font-extrabold text-slate-500">Marcus Fernandes</span>
+        <p className="absolute bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 dark:text-slate-500 font-mono text-center w-full block md:hidden whitespace-nowrap">
+          Criado por <span className="font-extrabold text-slate-500 dark:text-slate-400">Marcus Fernandes</span>
         </p>
       </div>
 
