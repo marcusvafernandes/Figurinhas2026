@@ -68,7 +68,7 @@ export const TEAMS: Team[] = [
 
   // Grupo K
   { code: 'POR', name: 'Portugal', group: 'Grupo K', flagUrl: '🇵🇹' },
-  { code: 'COD', name: 'República Democrática do Congo', group: 'Grupo K', flagUrl: '🇨🇩' },
+  { code: 'COD', name: 'RD Congo', group: 'Grupo K', flagUrl: '🇨🇩' },
   { code: 'UZB', name: 'Uzbequistão', group: 'Grupo K', flagUrl: '🇺🇿' },
   { code: 'COL', name: 'Colômbia', group: 'Grupo K', flagUrl: '🇨🇴' },
 

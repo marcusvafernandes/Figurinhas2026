@@ -80,8 +80,10 @@ import {
   ArrowRightLeft,
   Mail,
   Printer,
-  X
+  X,
+  QrCode
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 const isStickerSpecial = (id: string): boolean => {
@@ -1050,9 +1052,17 @@ export default function App() {
   const [importMode, setImportMode] = useState<'merge' | 'replace'>('merge');
   const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null);
   const [copiedExport, setCopiedExport] = useState(false);
+  const [showQrCode, setShowQrCode] = useState(false);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
   const [exportType, setExportType] = useState<'repeated' | 'missing'>('repeated');
   const [statsSubTab, setStatsSubTab] = useState<'meu_album' | 'comunidade'>('meu_album');
   const [isImporting, setIsImporting] = useState(false);
+  const [qrImportData, setQrImportData] = useState<{
+    text: string;
+    type: 'repeated' | 'missing';
+    stickerCount: number;
+  } | null>(null);
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const prevDoubleMatchUidsRef = useRef<string[] | null>(null);
   const isSettledRef = useRef<boolean>(false);
 
@@ -1084,6 +1094,109 @@ export default function App() {
       signOut(auth).catch(() => {});
     }
   }, []);
+
+  // 0c. QR Code Import Listener
+  useEffect(() => {
+    if (!user) return; // Wait until user is authenticated to import
+
+    const params = new URLSearchParams(window.location.search);
+    const qrImport = params.get('qr_import');
+
+    if (qrImport) {
+      try {
+        // Base64 decoding supporting UTF-8
+        const decodedText = decodeURIComponent(
+          Array.prototype.map.call(atob(qrImport), (c: string) => {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join('')
+        );
+        
+        // Auto-detect type
+        let statusToSet: 'repeated' | 'missing' = 'repeated';
+        const lines = decodedText.split('\n');
+        for (const line of lines) {
+          const lower = line.toLowerCase();
+          if (lower.includes('repetidas') || lower.includes('tenho')) {
+            statusToSet = 'repeated';
+            break;
+          } else if (lower.includes('faltantes') || lower.includes('falta') || lower.includes('preciso') || lower.includes('quero')) {
+            statusToSet = 'missing';
+            break;
+          }
+        }
+
+        // Count stickers
+        let stickerCount = 0;
+        const validStickerIds = new Set(STICKERS.map(s => s.id));
+        for (let line of lines) {
+          line = line.trim();
+          if (!line) continue;
+
+          const match = line.match(/^([A-Za-z0-9-]+)\s*:\s*(.*)$/);
+          if (match) {
+            const teamCode = match[1].toUpperCase();
+            const listStr = match[2];
+            const stickerRegex = /([A-Za-z]+)?(\d+)(?:\s*\(\s*(\d+)\s*x?\s*\))?/g;
+            let stickMatch;
+            while ((stickMatch = stickerRegex.exec(listStr)) !== null) {
+              const letterPrefix = stickMatch[1] ? stickMatch[1].toUpperCase() : '';
+              const numStr = stickMatch[2];
+              const qty = stickMatch[3] ? parseInt(stickMatch[3], 10) : 1;
+              let stickerId = '';
+              if (letterPrefix) {
+                stickerId = `${letterPrefix}${parseInt(numStr, 10)}`;
+                if (numStr === '00') stickerId = '00';
+              } else {
+                if (teamCode === 'FIFA' || teamCode === 'SPECIAL') {
+                  stickerId = numStr === '00' || numStr === '0' ? '00' : `FWC${parseInt(numStr, 10)}`;
+                } else {
+                  stickerId = `${teamCode}${parseInt(numStr, 10)}`;
+                }
+              }
+              if (validStickerIds.has(stickerId)) {
+                stickerCount += qty;
+              }
+            }
+          } else {
+            const stickerRegex = /([A-Za-z]+)(\d+)(?:\s*\(\s*(\d+)\s*x?\s*\))?/g;
+            let stickMatch;
+            while ((stickMatch = stickerRegex.exec(line)) !== null) {
+              const letterPrefix = stickMatch[1].toUpperCase();
+              const numStr = stickMatch[2];
+              const qty = stickMatch[3] ? parseInt(stickMatch[3], 10) : 1;
+              let stickerId = `${letterPrefix}${parseInt(numStr, 10)}`;
+              if (numStr === '00') stickerId = '00';
+              if (validStickerIds.has(stickerId)) {
+                stickerCount += qty;
+              }
+            }
+          }
+        }
+
+        if (stickerCount > 0) {
+          setQrImportData({
+            text: decodedText,
+            type: statusToSet,
+            stickerCount
+          });
+        } else {
+          triggerNotification("Código Inválido ⚠️", "O QR Code escaneado não contém figurinhas válidas.");
+        }
+
+      } catch (err) {
+        console.error("Failed to decode QR import", err);
+        triggerNotification("Erro de Importação ❌", "Ocorreu um erro ao ler os dados do QR Code.");
+      }
+
+      // Clear query parameter from the browser's URL bar without reload
+      try {
+        const newUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [user]);
 
   // 0b. Automatic database background cleanup for demo/sandbox records
   useEffect(() => {
@@ -1924,6 +2037,34 @@ export default function App() {
     }
   };
 
+  const getShareUrl = () => {
+    const text = generateExportText(exportType);
+    // Base64 encoding supporting UTF-8 characters
+    const encoded = btoa(
+      encodeURIComponent(text).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+        return String.fromCharCode(parseInt(p1, 16));
+      })
+    );
+    const origin = 'https://figurinhas2026-rust.vercel.app/';
+    return `${origin}?qr_import=${encoded}`;
+  };
+
+  useEffect(() => {
+    if (showQrCode && qrCanvasRef.current) {
+      const shareUrl = getShareUrl();
+      QRCode.toCanvas(qrCanvasRef.current, shareUrl, {
+        width: 200,
+        margin: 1,
+        color: {
+          dark: '#0f172a', // Slate 900
+          light: '#ffffff'
+        }
+      }, (error) => {
+        if (error) console.error("Error generating QR Code to Canvas", error);
+      });
+    }
+  }, [showQrCode, exportType, myStickers]);
+
   const generateExportText = (type: 'repeated' | 'missing'): string => {
     const tipoLabel = type === 'repeated' ? 'repetidas' : 'faltantes';
     const intro = `Olá, estas são minhas figurinhas ${tipoLabel}:`;
@@ -1977,22 +2118,25 @@ export default function App() {
     return `${intro}\n${lines.join('\n')}\n\nOrganizado com Figurinhas Copa 2026! Gerencie e troque figurinhas em: https://figurinhas2026-rust.vercel.app/`;
   };
 
-  const handleImportStickersSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const executeStickerImport = async (textToImport: string, modeToUse: 'merge' | 'replace') => {
     if (!user) {
       triggerNotification("Perfil Necessário 👤", "Por favor, faça login antes de importar.");
       return;
     }
-    if (!importText.trim()) {
-      triggerNotification("Entrada Vazia 📝", "Por favor, cole um texto com figurinhas.");
+    if (!textToImport.trim()) {
+      triggerNotification("Entrada Vazia 📝", "Por favor, forneça um texto com figurinhas.");
       return;
     }
 
     setIsImporting(true);
     setImportResult(null);
 
+    // Garante que o painel de importação esteja visível
+    setShowImportExport(true);
+    setImportExportTab('import');
+
     try {
-      const lines = importText.split('\n');
+      const lines = textToImport.split('\n');
       
       // Auto-detect status from first line or headers
       let statusToSet: 'repeated' | 'missing' = 'repeated';
@@ -2110,7 +2254,7 @@ export default function App() {
         if (statusToSet === 'missing') {
           const importedSet = new Set(parsedStickers.map(item => item.stickerId));
 
-          if (importMode === 'replace') {
+          if (modeToUse === 'replace') {
             // Replace mode: listed ones are missing (deleted), and the remaining ones in the album are owned (or kept repeated)
             for (const s of STICKERS) {
               const recordId = `${user.uid}_${s.id}`;
@@ -2153,7 +2297,7 @@ export default function App() {
           }
         } else {
           // statusToSet === 'repeated'
-          if (importMode === 'replace') {
+          if (modeToUse === 'replace') {
             // Delete existing ones of this status
             const existingOfStatus = (Object.values(myStickers) as UserSticker[]).filter(us => us.status === statusToSet);
             for (const es of existingOfStatus) {
@@ -2172,7 +2316,7 @@ export default function App() {
               status: statusToSet,
               quantity: item.quantity,
               updatedAt: new Date().toISOString()
-};
+            };
           }
         }
 
@@ -2183,7 +2327,7 @@ export default function App() {
         setAllStickersRecords([...otherRecords, ...Object.values(updatedMyStickers)]);
 
         const statusLabel = statusToSet === 'repeated' ? 'Repetidas' : 'Faltantes';
-        let message = `Sucesso! Importadas ${parsedStickers.length} figurinhas como "${statusLabel}" (${importMode === 'replace' ? 'Substituindo' : 'Mesclando'} com suas figurinhas anteriores de mesmo tipo) no Modo Visitante.`;
+        let message = `Sucesso! Importadas ${parsedStickers.length} figurinhas como "${statusLabel}" (${modeToUse === 'replace' ? 'Substituindo' : 'Mesclando'} com suas figurinhas anteriores de mesmo tipo) no Modo Visitante.`;
         if (invalidCount > 0) {
           message += ` Nota: ${invalidCount} figurinhas (como ${ignoredCodes.join(', ')}${invalidCount > 5 ? '...' : ''}) foram ignoradas pois não pertencem a este álbum oficial.`;
         }
@@ -2202,7 +2346,7 @@ export default function App() {
       if (statusToSet === 'missing') {
         const importedSet = new Set(parsedStickers.map(item => item.stickerId));
 
-        if (importMode === 'replace') {
+        if (modeToUse === 'replace') {
           // Replace mode: listed ones are missing (deleted), and the remaining ones in the album are owned (or kept repeated)
           for (const s of STICKERS) {
             const recordId = `${user.uid}_${s.id}`;
@@ -2262,7 +2406,7 @@ export default function App() {
         }
       } else {
         // statusToSet === 'repeated'
-        if (importMode === 'replace') {
+        if (modeToUse === 'replace') {
           const existingOfStatus = (Object.values(myStickers) as UserSticker[]).filter(us => us.status === statusToSet);
           for (const es of existingOfStatus) {
             const docRef = doc(db, 'user_stickers', es.id);
@@ -2310,7 +2454,7 @@ export default function App() {
       }
 
       const statusLabel = statusToSet === 'repeated' ? 'Repetidas' : 'Faltantes';
-      let message = `Sucesso! Importadas ${parsedStickers.length} figurinhas como "${statusLabel}" (${importMode === 'replace' ? 'Substituindo' : 'Mesclando'} com suas figurinhas anteriores de mesmo tipo).`;
+      let message = `Sucesso! Importadas ${parsedStickers.length} figurinhas como "${statusLabel}" (${modeToUse === 'replace' ? 'Substituindo' : 'Mesclando'} com suas figurinhas anteriores de mesmo tipo).`;
       if (invalidCount > 0) {
         message += ` Nota: ${invalidCount} figurinhas (como ${ignoredCodes.join(', ')}${invalidCount > 5 ? '...' : ''}) foram ignoradas pois não pertencem a este álbum oficial.`;
       }
@@ -2323,6 +2467,11 @@ export default function App() {
     } finally {
       setIsImporting(false);
     }
+  };
+
+  const handleImportStickersSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await executeStickerImport(importText, importMode);
   };
 
   // ==========================================
@@ -3750,8 +3899,8 @@ export default function App() {
                             <span className="text-[10px] text-slate-600 block leading-normal">Nossa inteligência calcula quem quer suas repetidas e tem os cromos que você precisa.</span>
                           </div>
                           <div className="bg-white/85 p-2.5 rounded-xl border border-amber-150 shadow-2xs">
-                            <span className="font-black text-amber-700 text-xs block mb-0.5">4. Inicie o Chat 💬</span>
-                            <span className="text-[10px] text-slate-600 block leading-normal">Abra a aba "Matches de Troca", revise os itens sugeridos e negocie direto pelo chat integrado.</span>
+                            <span className="font-black text-amber-700 text-xs block mb-0.5">4. Combine a Troca ✉️/📱</span>
+                            <span className="text-[10px] text-slate-600 block leading-normal">Abra a aba "Matches de Troca", revise os itens sugeridos e entre em contato direto via e-mail ou WhatsApp.</span>
                           </div>
                         </div>
                       </div>
@@ -3874,6 +4023,16 @@ export default function App() {
                               <div className="absolute bottom-3 right-3 flex gap-2">
                                 <button
                                   type="button"
+                                  onClick={() => setShowQrCode(!showQrCode)}
+                                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold shadow-sm cursor-pointer transition flex items-center gap-1.5 ${
+                                    showQrCode ? 'bg-emerald-600 text-white' : 'bg-white hover:bg-slate-100 border border-slate-250 text-slate-700'
+                                  }`}
+                                >
+                                  <QrCode className="w-3.5 h-3.5" />
+                                  {showQrCode ? 'Ocultar QR Code' : 'Compartilhar via QR Code'}
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={async () => {
                                     try {
                                       await navigator.clipboard.writeText(generateExportText(exportType));
@@ -3899,6 +4058,60 @@ export default function App() {
                                 </button>
                               </div>
                             </div>
+
+                            {showQrCode && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="bg-slate-50 border border-emerald-100 p-5 rounded-2xl flex flex-col items-center justify-center gap-4 text-center"
+                              >
+                                <div>
+                                  <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">QR Code de Compartilhamento</h4>
+                                  <p className="text-[11px] text-slate-500 font-semibold mt-1">
+                                    Peça para seu amigo escanear o QR Code abaixo com a câmera do celular para importar instantaneamente sua lista de figurinhas {exportType === 'repeated' ? 'repetidas' : 'faltantes'}.
+                                  </p>
+                                </div>
+
+                                <div className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm relative">
+                                  <canvas ref={qrCanvasRef} width={200} height={200} className="w-[200px] h-[200px] block" />
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm justify-center">
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        await navigator.clipboard.writeText(getShareUrl());
+                                        setCopiedShareLink(true);
+                                        setTimeout(() => setCopiedShareLink(false), 2000);
+                                      } catch (err) {
+                                        console.error("Link copy failed", err);
+                                      }
+                                    }}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
+                                      copiedShareLink ? 'bg-emerald-600 text-white' : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-700'
+                                    }`}
+                                  >
+                                    {copiedShareLink ? (
+                                      <>
+                                        <Check className="w-4 h-4" /> Link Copiado!
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Share2 className="w-4 h-4 text-slate-500" /> Copiar Link de Importação
+                                      </>
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowQrCode(false)}
+                                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-300/55 transition cursor-pointer"
+                                  >
+                                    Fechar
+                                  </button>
+                                </div>
+                              </motion.div>
+                            )}
                           </div>
                         ) : (
                           <form onSubmit={handleImportStickersSubmit} className="flex flex-col gap-4">
@@ -7457,6 +7670,103 @@ export default function App() {
         <p>Gerado pelo aplicativo Figurinhas Copa 2026 • https://figurinhas2026-rust.vercel.app/</p>
       </div>
     </div>
+
+    {qrImportData && (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+        <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 flex flex-col gap-4 text-slate-800">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+            <div className="bg-emerald-100 text-emerald-800 p-2.5 rounded-2xl">
+              <QrCode className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Importação QR Code</h3>
+              <p className="text-xs text-slate-500 font-semibold">
+                Coleção de figurinhas compartilhada detectada!
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl flex flex-col gap-2">
+            <div className="flex justify-between items-center text-xs font-bold text-slate-600">
+              <span>Tipo de Figurinhas:</span>
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                qrImportData.type === 'repeated' 
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+              }`}>
+                {qrImportData.type === 'repeated' ? '🔄 Repetidas' : '📖 Faltantes'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-xs font-bold text-slate-600">
+              <span>Total Encontrado:</span>
+              <span className="font-black text-slate-800 text-sm font-mono">{qrImportData.stickerCount} un</span>
+            </div>
+            <div className="border-t border-slate-200/50 my-1 pt-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pré-visualização do Conteúdo:</span>
+              <div className="max-h-24 overflow-y-auto mt-1 p-2 bg-white border border-slate-200 rounded-xl text-[10px] text-slate-600 font-mono whitespace-pre-line leading-relaxed">
+                {qrImportData.text}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <span className="block font-mono font-bold text-[10px] text-slate-400 uppercase tracking-wide mb-1.5">Escolha o Método de Importação</span>
+            <div className="flex flex-col gap-2 font-semibold text-xs">
+              <label className="flex items-center gap-2.5 p-3 border border-slate-250 hover:border-emerald-500 bg-slate-50/50 hover:bg-emerald-50/10 rounded-2xl cursor-pointer transition">
+                <input
+                  type="radio"
+                  name="qrImportMode"
+                  value="merge"
+                  checked={importMode === 'merge'}
+                  onChange={() => setImportMode('merge')}
+                  className="text-emerald-600 focus:ring-emerald-500"
+                />
+                <div className="flex flex-col text-left">
+                  <span className="text-slate-800 font-bold">Mesclar com coleções atuais</span>
+                  <span className="text-[10px] text-slate-400 leading-normal font-medium">Adiciona as novas figurinhas mantendo o seu progresso existente intacto.</span>
+                </div>
+              </label>
+              <label className="flex items-center gap-2.5 p-3 border border-slate-250 hover:border-emerald-500 bg-slate-50/50 hover:bg-emerald-50/10 rounded-2xl cursor-pointer transition">
+                <input
+                  type="radio"
+                  name="qrImportMode"
+                  value="replace"
+                  checked={importMode === 'replace'}
+                  onChange={() => setImportMode('replace')}
+                  className="text-emerald-600 focus:ring-emerald-500"
+                />
+                <div className="flex flex-col text-left">
+                  <span className="text-slate-800 font-bold">Substituir lista anterior</span>
+                  <span className="text-[10px] leading-normal font-medium text-red-600">Atenção: Limpa as suas figurinhas do mesmo tipo e define estas novas.</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-2">
+            <button
+              type="button"
+              onClick={() => setQrImportData(null)}
+              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-250 rounded-xl text-xs font-bold transition cursor-pointer text-center"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const data = qrImportData;
+                setQrImportData(null);
+                await executeStickerImport(data.text, importMode);
+              }}
+              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Importar Agora
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </>
 );
 }

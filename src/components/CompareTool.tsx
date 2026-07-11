@@ -152,7 +152,6 @@ export default function CompareTool({ myStickers }: CompareToolProps) {
             <div>
               <h2 className="text-base font-black text-slate-800 flex items-center gap-2">
                 Conferência de Figurinhas Externa
-                <span className="bg-emerald-100 text-emerald-800 text-[9.5px] font-black px-2 py-0.5 rounded-full">NOVO</span>
               </h2>
               <p className="text-xs text-slate-500 font-medium">
                 Compare rapidamente mensagens de texto ou listas de amigos com o seu progresso do álbum.
