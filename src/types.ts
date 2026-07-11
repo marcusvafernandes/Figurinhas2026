@@ -94,5 +94,6 @@ export interface ToastNotification {
   partnerEmail?: string;
   myRepeated?: string[];
   myMissing?: string[];
+  type?: 'match' | 'system' | 'message' | 'user_change' | 'achievement';
 }
 

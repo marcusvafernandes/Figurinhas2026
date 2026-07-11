@@ -301,10 +301,13 @@ export default function StatsDashboard({
         };
       })
       .sort((a, b) => {
+        if (a.otherOwnersCount !== b.otherOwnersCount) {
+          return a.otherOwnersCount - b.otherOwnersCount;
+        }
         if (a.repeatedQty !== b.repeatedQty) {
           return a.repeatedQty - b.repeatedQty;
         }
-        return a.otherOwnersCount - b.otherOwnersCount;
+        return a.sticker.id.localeCompare(b.sticker.id);
       });
     
     supremeChallenge = supremeChallengesSorted[0];
@@ -682,7 +685,7 @@ export default function StatsDashboard({
           </div>
 
           {/* Seção 2: Curiosidades Matemáticas & Conquistas */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Curiosidades & Previsões Matemáticas */}
             <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col gap-4 lg:col-span-1">
@@ -778,37 +781,6 @@ export default function StatsDashboard({
                   </p>
                 </div>
               )}
-            </div>
-
-            {/* Milestones / Conquistas */}
-            <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col gap-4 lg:col-span-1">
-              <h3 className="text-sm font-extrabold text-slate-950 flex items-center gap-1.5 border-b border-slate-100 pb-3">
-                <Medal className="w-4 h-4 text-amber-500" /> Suas Conquistas de Álbum 🎖️
-              </h3>
-
-              <div className="space-y-2.5 max-h-[240px] overflow-y-auto pr-1">
-                {achievements.map((ach) => (
-                  <div 
-                    key={ach.id} 
-                    className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all ${
-                      ach.unlocked 
-                        ? 'bg-emerald-50/40 border-emerald-100/70 hover:bg-emerald-50/70' 
-                        : 'bg-slate-50/20 border-slate-150 grayscale opacity-60'
-                    }`}
-                  >
-                    <div className="text-xl p-1.5 bg-white shadow-xs rounded-lg border border-slate-100 shrink-0 select-none">
-                      {ach.unlocked ? ach.icon : '🔒'}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-800 leading-tight flex items-center gap-1">
-                        {ach.title}
-                        {ach.unlocked && <span className="text-[8px] bg-emerald-100 text-emerald-800 font-black px-1.5 rounded-full uppercase leading-none py-0.5 border border-emerald-200">OK</span>}
-                      </h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5 font-medium leading-tight">{ach.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
 
           </div>

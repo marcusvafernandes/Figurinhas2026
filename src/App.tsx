@@ -377,6 +377,339 @@ const DEFAULT_DIEGO_STICKERS: Record<string, UserSticker> = {
   'FWC1': { id: 'demo_diego_copa_FWC1', userId: 'demo_diego_copa', userDisplayName: 'Diego Maradona (Demo)', stickerId: 'FWC1', status: 'missing', quantity: 1, updatedAt: '' },
 };
 
+interface ToastItemProps {
+  toast: ToastNotification;
+  onClose: (id: string) => void;
+  setActiveTab: (tab: any) => void;
+  setActiveChat: (chat: any) => void;
+  user: UserProfile | null;
+}
+
+export interface Achievement {
+  id: string;
+  title: string;
+  desc: string;
+  unlocked: boolean;
+  icon: string;
+  points: number;
+}
+
+export function getMyAchievements(myStickers: Record<string, UserSticker | any>, userProfile?: UserProfile | null): Achievement[] {
+  const myOwnedUniquesCount = STICKERS.filter(s => {
+    const state = myStickers[s.id];
+    return state && (state.status === 'owned' || state.status === 'repeated');
+  }).length;
+  const myAlbumCompletionPct = STICKERS.length > 0 ? Math.round((myOwnedUniquesCount / STICKERS.length) * 100) : 0;
+
+  const totalSpecialsCount = STICKERS.filter(s => s.isSpecial).length;
+  const myOwnedSpecialsCount = STICKERS.filter(s => {
+    if (!s.isSpecial) return false;
+    const state = myStickers[s.id];
+    return state && (state.status === 'owned' || state.status === 'repeated');
+  }).length;
+
+  const allSections = [
+    { code: 'FIFA', name: 'FIFA / Especiais', flagUrl: '🏆', isRealTeam: false },
+    ...TEAMS.map(t => ({ code: t.code, name: t.name, flagUrl: t.flagUrl, isRealTeam: t.code !== 'COCA' }))
+  ];
+
+  const sectionCompletion = allSections.map(sec => {
+    const secStickers = STICKERS.filter(s => s.teamCode === sec.code);
+    const totalInSec = secStickers.length;
+    const ownedInSec = secStickers.filter(s => {
+      const state = myStickers[s.id];
+      return state && (state.status === 'owned' || state.status === 'repeated');
+    }).length;
+    return {
+      ...sec,
+      total: totalInSec,
+      owned: ownedInSec,
+      pct: totalInSec > 0 ? Math.round((ownedInSec / totalInSec) * 100) : 0,
+      isComplete: totalInSec > 0 && ownedInSec === totalInSec
+    };
+  });
+
+  const completeSectionsCount = sectionCompletion.filter(s => s.isComplete).length;
+
+  return [
+    {
+      id: 'whatsapp_registered',
+      title: 'Conexão Ativa 📱',
+      desc: 'Cadastrou o número de WhatsApp no perfil para facilitar trocas.',
+      unlocked: !!(userProfile && userProfile.whatsapp && userProfile.whatsapp.trim().length > 0),
+      icon: '📱',
+      points: 30
+    },
+    {
+      id: 'first_sticker',
+      title: 'Pontapé Inicial ⚽',
+      desc: 'Marcou a primeira figurinha no álbum.',
+      unlocked: myOwnedUniquesCount >= 1,
+      icon: '🎯',
+      points: 10
+    },
+    {
+      id: 'pct_10',
+      title: 'Colecionador Dedicado 📈',
+      desc: 'Alcançou 10% de conclusão do álbum geral.',
+      unlocked: myAlbumCompletionPct >= 10,
+      icon: '⚡',
+      points: 20
+    },
+    {
+      id: 'pct_50',
+      title: 'Meio Caminho Andado 🏆',
+      desc: 'Concluiu metade (50%) do seu álbum.',
+      unlocked: myAlbumCompletionPct >= 50,
+      icon: '⭐',
+      points: 50
+    },
+    {
+      id: 'pct_75',
+      title: 'Colecionador de Elite 🥈',
+      desc: 'Concluiu 75% de todo o seu álbum.',
+      unlocked: myAlbumCompletionPct >= 75,
+      icon: '🥈',
+      points: 75
+    },
+    {
+      id: 'pct_100',
+      title: 'Lenda do Álbum 🥇',
+      desc: 'Completou 100% de todo o seu álbum! Parabéns!',
+      unlocked: myAlbumCompletionPct === 100,
+      icon: '🥇',
+      points: 500
+    },
+    {
+      id: 'shiny_unlocked',
+      title: 'Brilho Puro ✨',
+      desc: 'Colecionou pelo menos 5 figurinhas metalizadas.',
+      unlocked: myOwnedSpecialsCount >= 5,
+      icon: '💎',
+      points: 40
+    },
+    {
+      id: 'specials_complete',
+      title: 'Especiais Completo 🔮',
+      desc: 'Completou todas as figurinhas especiais (FIFA).',
+      unlocked: sectionCompletion.find(s => s.code === 'FIFA')?.isComplete || false,
+      icon: '🔮',
+      points: 100
+    },
+    {
+      id: 'coca_complete',
+      title: 'Coca-Cola Completo 🥤',
+      desc: 'Completou todas as figurinhas da seção Coca-Cola.',
+      unlocked: sectionCompletion.find(s => s.code === 'COCA')?.isComplete || false,
+      icon: '🥤',
+      points: 100
+    },
+    {
+      id: 'first_complete_team',
+      title: 'Mestre de Seleção 🇧🇷',
+      desc: 'Completou 100% de pelo menos uma seleção.',
+      unlocked: completeSectionsCount >= 1,
+      icon: '👑',
+      points: 80
+    },
+    {
+      id: 'half_teams_complete',
+      title: 'Mestre de Continentes 🌍',
+      desc: 'Completou 100% de pelo menos 50% das seleções.',
+      unlocked: (() => {
+        const realTeams = sectionCompletion.filter(s => s.isRealTeam);
+        const completeRealTeams = realTeams.filter(s => s.isComplete).length;
+        return realTeams.length > 0 && completeRealTeams >= Math.ceil(realTeams.length / 2);
+      })(),
+      icon: '🗺️',
+      points: 250
+    },
+    {
+      id: 'all_specials',
+      title: 'Brilhante Lendário 🌟',
+      desc: 'Colecionou todas as metalizadas do álbum.',
+      unlocked: myOwnedSpecialsCount === totalSpecialsCount,
+      icon: '🏆',
+      points: 300
+    }
+  ];
+}
+
+const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, setActiveTab, setActiveChat, user }) => {
+  const isMatch = toast.type === 'match';
+  const isMessage = toast.type === 'message';
+  const isUserChange = toast.type === 'user_change';
+  const isSystem = toast.type === 'system';
+  const isAchievement = toast.type === 'achievement';
+
+  const duration = isMatch ? 10000 : isSystem ? 7500 : isUserChange ? 6000 : 8000;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose(toast.id);
+    }, duration);
+    return () => clearTimeout(timer);
+  }, [toast.id, duration, onClose]);
+
+  return (
+    <motion.div
+      id={`toast-${toast.id}`}
+      initial={{ opacity: 0, x: 100, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 50, scale: 0.9, transition: { duration: 0.2 } }}
+      className={`pointer-events-auto bg-white rounded-xl p-4 shadow-xl flex gap-3 backdrop-blur-md border relative overflow-hidden ${
+        isMatch 
+          ? 'border-2 border-amber-400' 
+          : isAchievement
+          ? 'border-2 border-yellow-500 shadow-yellow-100/50'
+          : isMessage 
+          ? 'border border-emerald-300' 
+          : 'border border-slate-200'
+      }`}
+    >
+      {isSystem ? (
+        <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0 self-start text-blue-500">
+          <AlertCircle className="w-5 h-5" />
+        </div>
+      ) : isAchievement ? (
+        <div className="w-10 h-10 rounded-lg bg-yellow-50 border border-yellow-200 flex items-center justify-center shrink-0 self-start text-lg select-none">
+          {toast.partnerUid || '🏆'}
+        </div>
+      ) : (
+        <img 
+          src={`https://api.dicebear.com/7.x/identicon/svg?seed=${toast.partnerUid}`} 
+          alt="avatar" 
+          className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-250 self-start shrink-0"
+          referrerPolicy="no-referrer"
+        />
+      )}
+      <div className="flex-1 min-w-0 pb-1">
+        <div className="flex items-center justify-between gap-1">
+          {isMatch ? (
+            <span className="font-extrabold text-[11px] text-amber-850 flex items-center gap-1.5 uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 animate-bounce" /> Match Perfeito!
+            </span>
+          ) : isAchievement ? (
+            <span className="font-extrabold text-[11px] text-yellow-800 flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
+              🏆 Conquista Desbloqueada!
+            </span>
+          ) : isMessage ? (
+            <span className="font-extrabold text-[11px] text-emerald-850 flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
+              💬 Nova Mensagem
+            </span>
+          ) : isUserChange ? (
+            <span className="font-extrabold text-[11px] text-indigo-850 flex items-center gap-1.5 uppercase tracking-wider">
+              👤 Usuário Alterado
+            </span>
+          ) : (
+            <span className="font-extrabold text-[11px] text-slate-500 flex items-center gap-1.5 uppercase tracking-wider">
+              🔔 Notificação
+            </span>
+          )}
+          <button 
+            id={`btn-close-${toast.id}`}
+            onClick={() => onClose(toast.id)}
+            className="text-slate-400 hover:text-slate-650 transition cursor-pointer p-0.5"
+          >
+            <Check className="w-4 h-4" />
+          </button>
+        </div>
+        <p className="font-extrabold text-sm text-slate-800 mt-1 truncate">
+          {isMatch ? toast.partnerName : toast.title}
+        </p>
+        <p className="text-xs text-slate-600 mt-1 leading-relaxed font-semibold">
+          {isMatch 
+            ? "Tem as figurinhas do seu álbum e busca as suas repetidas!" 
+            : toast.description}
+        </p>
+        {(isMatch || isMessage || isAchievement) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {toast.partnerWhatsapp && (isMatch || isMessage) && (
+              <a
+                id={`btn-wa-${toast.id}`}
+                href={isMatch 
+                  ? buildDoubleMatchWhatsappLink(
+                      toast.partnerWhatsapp,
+                      toast.partnerName,
+                      toast.myRepeated || [],
+                      toast.myMissing || []
+                    )
+                  : `https://wa.me/${toast.partnerWhatsapp.replace(/\D/g, '')}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
+                onClick={() => onClose(toast.id)}
+              >
+                <Phone className="w-3 h-3 text-white" /> WhatsApp
+              </a>
+            )}
+            {isMatch && (
+              <button
+                id={`btn-view-${toast.id}`}
+                onClick={() => {
+                  setActiveTab('matches');
+                  onClose(toast.id);
+                }}
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition border border-slate-200 cursor-pointer"
+              >
+                Ver Trocas
+              </button>
+            )}
+            {isAchievement && (
+              <button
+                id={`btn-view-profile-ach-${toast.id}`}
+                onClick={() => {
+                  setActiveTab('profile');
+                  onClose(toast.id);
+                }}
+                className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-bold transition border border-amber-600 cursor-pointer shadow-sm"
+              >
+                Ver Conquistas
+              </button>
+            )}
+            {isMessage && (
+              <button
+                id={`btn-view-chat-${toast.id}`}
+                onClick={() => {
+                  setActiveChat({
+                    chatId: [user?.uid, toast.partnerUid].sort().join('_'),
+                    partnerId: toast.partnerUid,
+                    partnerName: toast.partnerName,
+                    partnerWhatsapp: toast.partnerWhatsapp
+                  });
+                  onClose(toast.id);
+                }}
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition border border-slate-200 cursor-pointer"
+              >
+                Abrir Chat
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Visually animated progress bar timer */}
+      <motion.div
+        initial={{ width: "100%" }}
+        animate={{ width: "0%" }}
+        transition={{ duration: duration / 1000, ease: "linear" }}
+        className={`absolute bottom-0 left-0 h-1 ${
+          isMatch 
+            ? 'bg-amber-400' 
+            : isAchievement
+            ? 'bg-yellow-500'
+            : isMessage 
+            ? 'bg-emerald-500' 
+            : isUserChange
+            ? 'bg-indigo-500'
+            : 'bg-blue-500'
+        }`}
+      />
+    </motion.div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [previousLastActiveAt, setPreviousLastActiveAt] = useState<string | null>(null);
@@ -419,6 +752,16 @@ export default function App() {
   // Trade History state
   const [tradeHistory, setTradeHistory] = useState<any[]>([]);
 
+  const rarestAchievement = useMemo(() => {
+    if (!user) return null;
+    const achs = getMyAchievements(myStickers, user);
+    const unlocked = achs.filter(a => a.unlocked);
+    if (unlocked.length === 0) return null;
+    // Sort descending by points
+    unlocked.sort((a, b) => b.points - a.points);
+    return unlocked[0]; // Rarest with highest points!
+  }, [myStickers, user?.uid, user?.whatsapp]);
+
   useEffect(() => {
     if (!user) {
       setTradeHistory([]);
@@ -436,6 +779,82 @@ export default function App() {
       setTradeHistory([]);
     }
   }, [user]);
+
+  // Monitor achievements for real-time unlock notifications
+  const prevUnlockedAchievementsRef = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (!user || !myStickers || Object.keys(myStickers).length === 0) {
+      prevUnlockedAchievementsRef.current = null;
+      return;
+    }
+
+    const currentAchievements = getMyAchievements(myStickers, user);
+    const currentUnlockedIds = new Set(
+      currentAchievements.filter(a => a.unlocked).map(a => a.id)
+    );
+
+    const shownKey = `notified_achievements_${user.uid}`;
+
+    // If it's the first time we load the stickers, initialize the ref and persist existing ones in localStorage without triggering toasts
+    if (prevUnlockedAchievementsRef.current === null) {
+      prevUnlockedAchievementsRef.current = currentUnlockedIds;
+      try {
+        const shownList = JSON.parse(localStorage.getItem(shownKey) || '[]');
+        const newShownList = Array.from(new Set([...shownList, ...Array.from(currentUnlockedIds)]));
+        localStorage.setItem(shownKey, JSON.stringify(newShownList));
+      } catch (e) {
+        console.error("Error setting initial notified achievements", e);
+      }
+      return;
+    }
+
+    // Load shown achievements from localStorage to guarantee they only show once
+    let shownSet = new Set<string>();
+    try {
+      const shownList = JSON.parse(localStorage.getItem(shownKey) || '[]');
+      shownSet = new Set<string>(shownList);
+    } catch (e) {
+      console.error("Error reading notified achievements from localStorage", e);
+    }
+
+    // Find any achievement that is now unlocked, was NOT unlocked previously in this session, and has NOT been shown in the past
+    const newlyUnlocked = currentAchievements.filter(
+      a => a.unlocked && !prevUnlockedAchievementsRef.current!.has(a.id) && !shownSet.has(a.id)
+    );
+
+    if (newlyUnlocked.length > 0) {
+      newlyUnlocked.forEach(ach => {
+        const toastId = `ach-${ach.id}-${Math.random().toString(36).substring(2, 7)}`;
+        
+        // Add a beautiful achievement toast!
+        setToasts(prev => [
+          {
+            id: toastId,
+            title: ach.title,
+            description: ach.desc,
+            partnerUid: ach.icon, // We use the emoji icon as the badge!
+            partnerName: ach.title,
+            type: 'achievement'
+          },
+          ...prev
+        ]);
+
+        // Add to shown set
+        shownSet.add(ach.id);
+      });
+
+      // Persist the newly shown achievements
+      try {
+        localStorage.setItem(shownKey, JSON.stringify(Array.from(shownSet)));
+      } catch (e) {
+        console.error("Error saving notified achievements", e);
+      }
+    }
+
+    // Update the ref
+    prevUnlockedAchievementsRef.current = currentUnlockedIds;
+  }, [myStickers, user?.uid, user?.whatsapp]);
 
   // Set settled to true 3.5 seconds after user login/mount to prevent initial race-condition false positives on perfect match toasts
   useEffect(() => {
@@ -502,9 +921,24 @@ export default function App() {
 
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  useEffect(() => {
+    if (toasts.length > 5) {
+      setToasts(prev => prev.slice(0, 5));
+    }
+  }, [toasts]);
   const [expandedPartnersMissing, setExpandedPartnersMissing] = useState<Record<string, boolean>>({});
   const [expandedPartnersRepeated, setExpandedPartnersRepeated] = useState<Record<string, boolean>>({});
   const [collapsedRepeatedTeams, setCollapsedRepeatedTeams] = useState<Record<string, boolean>>({});
+
+  // States for interactive rapid batch marking
+  const [bulkEditTeamCode, setBulkEditTeamCode] = useState<string | null>(null);
+  const [bulkEditMode, setBulkEditMode] = useState<'owned' | 'missing' | null>(null);
+  const [bulkEditSelectedIds, setBulkEditSelectedIds] = useState<Record<string, boolean>>({});
+  const [bulkEditConfirmActive, setBulkEditConfirmActive] = useState(false);
+
+  // State for confirming "Todas" bulk operations
+  const [bulkConfirm, setBulkConfirm] = useState<{ teamCode: string; action: 'owned' | 'missing' | 'repeated' } | null>(null);
 
   const triggerNotification = (title: string, description: string) => {
     const toastId = Math.random().toString(36).substring(2, 9);
@@ -514,7 +948,8 @@ export default function App() {
         title,
         description,
         partnerUid: 'system',
-        partnerName: 'Notificação do Sistema'
+        partnerName: 'Notificação do Sistema',
+        type: 'system'
       },
       ...prev
     ]);
@@ -626,12 +1061,15 @@ export default function App() {
   const [printScope, setPrintScope] = useState<'only_active' | 'full_album'>('only_active');
   const [printFilter, setPrintFilter] = useState<'both' | 'missing' | 'repeated'>('both');
   const [printLayout, setPrintLayout] = useState<'detailed' | 'compact'>('detailed');
+  const [showHowItWorks, setShowHowItWorks] = useState<boolean>(() => {
+    return localStorage.getItem('copa_show_guide_nielsen') !== 'false';
+  });
 
   // Search & Custom interactive marking layout states
   const [searchText, setSearchText] = useState('');
   const [fastAddCode, setFastAddCode] = useState('');
   const [fastAddError, setFastAddError] = useState<string | null>(null);
-  const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({ BRA: true, FIFA: true });
+  const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
   const [selectedStickerByTeam, setSelectedStickerByTeam] = useState<Record<string, string>>({});
   const [isProgressDetailsExpanded, setIsProgressDetailsExpanded] = useState(false);
   const [progressSearch, setProgressSearch] = useState('');
@@ -1373,6 +1811,119 @@ export default function App() {
     await handleBulkApply('team', action, teamCode);
   };
 
+  const handleBulkEditSubmit = async () => {
+    if (!user || !bulkEditTeamCode || !bulkEditMode) return;
+
+    const selectedIds = Object.keys(bulkEditSelectedIds).filter(id => bulkEditSelectedIds[id]);
+    if (selectedIds.length === 0) {
+      triggerNotification("Aviso 💡", "Nenhuma figurinha selecionada.");
+      return;
+    }
+
+    setBulkLoading(true);
+
+    try {
+      const targetStickers = STICKERS.filter(s => selectedIds.includes(s.id));
+      const updatedMyStickers = { ...myStickers };
+
+      // Local / Offline Storage integration for Demo users
+      if (user.uid.startsWith('demo_')) {
+        targetStickers.forEach((s) => {
+          const recordId = `${user.uid}_${s.id}`;
+          const quantity = myStickers[s.id]?.quantity || 1;
+
+          if (bulkEditMode === 'missing') {
+            delete updatedMyStickers[s.id];
+          } else {
+            updatedMyStickers[s.id] = {
+              id: recordId,
+              userId: user.uid,
+              userDisplayName: user.displayName || 'Colecionador',
+              stickerId: s.id,
+              status: bulkEditMode,
+              quantity: bulkEditMode === 'repeated' ? quantity : 1,
+              updatedAt: new Date().toISOString()
+            };
+          }
+        });
+
+        localStorage.setItem(`copa_stickers_local_${user.uid}`, JSON.stringify(updatedMyStickers));
+        setMyStickers(updatedMyStickers);
+
+        const otherRecords = allStickersRecords.filter(r => r.userId !== user.uid);
+        setAllStickersRecords([...otherRecords, ...Object.values(updatedMyStickers)]);
+
+        const statusText = bulkEditMode === 'owned' ? 'Tenho' : 'Falta';
+        triggerNotification(
+          "Sucesso! ✔️", 
+          `Aplicado status '${statusText}' em lote para ${targetStickers.length} figurinhas localmente.`
+        );
+      } else {
+        // Online Firestore Flow - Chunking to 400 records per batch
+        const CHUNK_SIZE = 400;
+        const chunks: Sticker[][] = [];
+        for (let i = 0; i < targetStickers.length; i += CHUNK_SIZE) {
+          chunks.push(targetStickers.slice(i, i + CHUNK_SIZE));
+        }
+
+        for (const chunk of chunks) {
+          const batch = writeBatch(db);
+          chunk.forEach((s) => {
+            const recordId = `${user.uid}_${s.id}`;
+            const docRef = doc(db, 'user_stickers', recordId);
+            const quantity = myStickers[s.id]?.quantity || 1;
+
+            if (bulkEditMode === 'missing') {
+              batch.delete(docRef);
+              delete updatedMyStickers[s.id];
+            } else {
+              batch.set(docRef, {
+                id: recordId,
+                userId: user.uid,
+                userDisplayName: user.displayName || 'Colecionador',
+                stickerId: s.id,
+                status: bulkEditMode,
+                quantity: bulkEditMode === 'repeated' ? quantity : 1,
+                updatedAt: serverTimestamp()
+              }, { merge: true });
+
+              updatedMyStickers[s.id] = {
+                id: recordId,
+                userId: user.uid,
+                userDisplayName: user.displayName || 'Colecionador',
+                stickerId: s.id,
+                status: bulkEditMode,
+                quantity: bulkEditMode === 'repeated' ? quantity : 1,
+                updatedAt: new Date().toISOString()
+              };
+            }
+          });
+          await batch.commit();
+        }
+
+        setMyStickers(updatedMyStickers);
+        const otherRecords = allStickersRecords.filter(r => r.userId !== user.uid);
+        setAllStickersRecords([...otherRecords, ...Object.values(updatedMyStickers)]);
+
+        const statusText = bulkEditMode === 'owned' ? 'Tenho' : 'Falta';
+        triggerNotification(
+          "Sucesso! 🔥", 
+          `Aplicado status '${statusText}' em lote para ${targetStickers.length} figurinhas na nuvem.`
+        );
+      }
+    } catch (error) {
+      console.error("Bulk apply failed:", error);
+      triggerNotification("Erro de conexão ⚠️", "Não foi possível aplicar as alterações em lote de forma persistente.");
+    } finally {
+      setBulkLoading(false);
+      // Reset state
+      setBulkEditTeamCode(null);
+      setBulkEditMode(null);
+      setBulkEditSelectedIds({});
+      setBulkEditConfirmActive(false);
+    }
+  };
+
   const generateExportText = (type: 'repeated' | 'missing'): string => {
     const tipoLabel = type === 'repeated' ? 'repetidas' : 'faltantes';
     const intro = `Olá, estas são minhas figurinhas ${tipoLabel}:`;
@@ -1874,7 +2425,8 @@ export default function App() {
         title: "Usuário Alterado! 👤",
         description: `Visualizando como: ${targetUser.displayName}`,
         partnerUid: targetUser.uid,
-        partnerName: targetUser.displayName
+        partnerName: targetUser.displayName,
+        type: 'user_change'
       },
       ...prev
     ]);
@@ -1976,7 +2528,8 @@ export default function App() {
         description: adminChatMessageText.trim(),
         partnerUid: adminChatSender,
         partnerName: senderProfile.displayName,
-        partnerWhatsapp: senderProfile.whatsapp
+        partnerWhatsapp: senderProfile.whatsapp,
+        type: 'message'
       },
       ...prev
     ]);
@@ -2503,7 +3056,8 @@ export default function App() {
           partnerName: match.partnerName,
           partnerWhatsapp: match.partnerWhatsapp,
           myRepeated: match.myRepeated,
-          myMissing: match.myMissing
+          myMissing: match.myMissing,
+          type: 'match'
         };
         setToasts(prev => {
           // Prevent duplicates in current active toasts
@@ -2521,6 +3075,54 @@ export default function App() {
     // Update the ref
     prevDoubleMatchUidsRef.current = currentPartnerIds;
   }, [doubleMatchPartnerIds, user?.uid, allStickersRecords.length, Object.keys(allUsers).length]);
+
+  const groupedToasts = useMemo(() => {
+    const groups: Record<string, { title: string; dotColor: string; badgeColor: string; containerClass: string; items: ToastNotification[] }> = {
+      match: { 
+        title: 'Matches de Troca ⚽', 
+        dotColor: 'bg-amber-500 shadow-xs shadow-amber-500/50', 
+        badgeColor: 'bg-amber-50 text-amber-700 border border-amber-200/60', 
+        containerClass: 'bg-amber-50/95 border-amber-400/90 shadow-[0_12px_30px_-4px_rgba(245,158,11,0.25)] ring-1 ring-amber-450/30',
+        items: [] 
+      },
+      message: { 
+        title: 'Novas Mensagens 💬', 
+        dotColor: 'bg-emerald-500 shadow-xs shadow-emerald-500/50', 
+        badgeColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/60', 
+        containerClass: 'bg-emerald-50/95 border-emerald-300/90 shadow-[0_12px_30px_-4px_rgba(16,185,129,0.22)] ring-1 ring-emerald-400/20',
+        items: [] 
+      },
+      achievement: { 
+        title: 'Conquistas Desbloqueadas 🏆', 
+        dotColor: 'bg-yellow-500 shadow-xs shadow-yellow-500/50', 
+        badgeColor: 'bg-yellow-50 text-yellow-700 border border-yellow-200/60', 
+        containerClass: 'bg-yellow-50/95 border-yellow-300/90 shadow-[0_12px_30px_-4px_rgba(234,179,8,0.22)] ring-1 ring-yellow-400/20',
+        items: [] 
+      },
+      system: { 
+        title: 'Avisos e Sistema 🔔', 
+        dotColor: 'bg-rose-500 shadow-xs shadow-rose-500/50', 
+        badgeColor: 'bg-rose-50 text-rose-700 border border-rose-200/60', 
+        containerClass: 'bg-rose-50/95 border-rose-400/90 shadow-[0_12px_30px_-4px_rgba(244,63,94,0.25)] ring-1 ring-rose-500/20',
+        items: [] 
+      }
+    };
+
+    toasts.forEach(toast => {
+      const type = toast.type || 'system';
+      if (type === 'match') {
+        groups.match.items.push(toast);
+      } else if (type === 'message') {
+        groups.message.items.push(toast);
+      } else if (type === 'achievement') {
+        groups.achievement.items.push(toast);
+      } else {
+        groups.system.items.push(toast);
+      }
+    });
+
+    return Object.entries(groups).filter(([_, g]) => g.items.length > 0);
+  }, [toasts]);
 
 
   // 4. Counts indicators
@@ -2721,6 +3323,27 @@ export default function App() {
             </div>
           </div>
 
+          {/* Heuristic #1: Visibility of System Status - Real-Time Sync Badge */}
+          <div 
+            id="nielsen-sync-badge"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] sm:text-xs font-bold text-slate-650 shadow-2xs select-none"
+            title={user.uid.startsWith('demo_') ? "Você está rodando no Modo Demo local" : "Seus dados estão sincronizados na nuvem"}
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>
+              {user.uid.startsWith('demo_') ? (
+                <>Modo Demonstração <span className="text-amber-700">(Local) 💾</span></>
+              ) : user.uid.startsWith('custom_sim_') ? (
+                <>Simulador Ativo <span className="text-purple-700">(Sandbox) 🤖</span></>
+              ) : (
+                <>Sincronizado na Nuvem <span className="text-emerald-700">☁️</span></>
+              )}
+            </span>
+          </div>
+
           {/* User Status Bar */}
           <div className="flex items-center gap-3 bg-emerald-50/70 pl-3 pr-2 py-1.5 rounded-xl border border-emerald-200/60 text-xs text-emerald-900 shadow-sm">
             <div className="flex items-center gap-2">
@@ -2730,7 +3353,17 @@ export default function App() {
                 className="w-6 h-6 rounded-lg bg-emerald-100 border border-emerald-200"
                 referrerPolicy="no-referrer"
               />
-              <span className="font-bold text-emerald-955 max-w-[100px] sm:max-w-none truncate">{user.displayName}</span>
+              <span className="font-bold text-emerald-955 max-w-[100px] sm:max-w-none truncate flex items-center gap-1">
+                {user.displayName}
+                {rarestAchievement && (
+                  <span 
+                    className="inline-flex text-sm animate-pulse cursor-help" 
+                    title={`Sua conquista mais rara: ${rarestAchievement.title} (+${rarestAchievement.points} pts)`}
+                  >
+                    {rarestAchievement.icon}
+                  </span>
+                )}
+              </span>
             </div>
             
             <div className="h-4 w-px bg-emerald-200"></div>
@@ -3073,6 +3706,58 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+
+                {/* Onboarding Guide Card - Heuristic #10 Help and Documentation */}
+                {showHowItWorks && (
+                  <div 
+                    id="heuristic-guide-card"
+                    className="bg-amber-50/65 border border-amber-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 relative animate-fadeIn"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHowItWorks(false);
+                        localStorage.setItem('copa_show_guide_nielsen', 'false');
+                      }}
+                      className="absolute top-3.5 right-3.5 text-amber-600 hover:text-amber-800 transition cursor-pointer p-1 rounded-full hover:bg-amber-100"
+                      title="Fechar Guia de Ajuda"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="flex gap-2.5 items-start">
+                      <div className="bg-amber-100 text-amber-800 p-2 rounded-xl border border-amber-200">
+                        <Lightbulb className="w-5 h-5 shrink-0 animate-pulse" />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-xs sm:text-sm text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
+                          Guia Rápido: Como funciona a Troca Inteligente? 💡
+                        </h4>
+                        <p className="text-[11px] text-amber-850 mt-1 max-w-2xl leading-relaxed">
+                          Siga o fluxo passo a passo para encontrar parceiros de troca e completar seu álbum de forma super rápida e intuitiva.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-3.5">
+                          <div className="bg-white/85 p-2.5 rounded-xl border border-amber-150 shadow-2xs">
+                            <span className="font-black text-amber-700 text-xs block mb-0.5">1. Marque seu Álbum 📖</span>
+                            <span className="text-[10px] text-slate-600 block leading-normal">Indique as figurinhas que você <strong>Falta</strong> ou <strong>Tenho</strong> no catálogo abaixo.</span>
+                          </div>
+                          <div className="bg-white/85 p-2.5 rounded-xl border border-amber-150 shadow-2xs">
+                            <span className="font-black text-amber-700 text-xs block mb-0.5">2. Adicione Repetidas 🔄</span>
+                            <span className="text-[10px] text-slate-600 block leading-normal">Selecione o filtro <strong>Repetidas</strong> e indique a quantidade de cópias extras de cada cromo.</span>
+                          </div>
+                          <div className="bg-white/85 p-2.5 rounded-xl border border-amber-150 shadow-2xs">
+                            <span className="font-black text-amber-700 text-xs block mb-0.5">3. Encontre Matches ⚽</span>
+                            <span className="text-[10px] text-slate-600 block leading-normal">Nossa inteligência calcula quem quer suas repetidas e tem os cromos que você precisa.</span>
+                          </div>
+                          <div className="bg-white/85 p-2.5 rounded-xl border border-amber-150 shadow-2xs">
+                            <span className="font-black text-amber-700 text-xs block mb-0.5">4. Inicie o Chat 💬</span>
+                            <span className="text-[10px] text-slate-600 block leading-normal">Abra a aba "Matches de Troca", revise os itens sugeridos e negocie direto pelo chat integrado.</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* PRIMARY SUB-TAB SELECTORS */}
                 <div className="flex bg-slate-100/70 p-1 rounded-xl text-xs font-bold border border-slate-200 font-sans">
@@ -3856,6 +4541,53 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Heuristics #1, #3, #6: Active Filters Chip Summary & Clear All */}
+                {(searchText !== '' || selectedGroup !== 'TODOS' || selectedTeam !== 'TODOS' || statusFilter !== 'TODOS') && (
+                  <div 
+                    id="nielsen-active-filters-bar"
+                    className="flex flex-wrap items-center gap-2 bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100/60 text-xs animate-fadeIn"
+                  >
+                    <span className="font-extrabold text-slate-500 uppercase tracking-wider text-[10px] pl-1">Filtros Ativos:</span>
+                    {searchText !== '' && (
+                      <span className="bg-white border border-slate-200 text-slate-700 px-2.5 py-1 rounded-xl font-bold flex items-center gap-1.5 shadow-2xs">
+                        Pesquisa: "{searchText}"
+                        <button type="button" onClick={() => setSearchText('')} className="text-red-500 hover:text-red-750 font-black ml-1 text-sm cursor-pointer" title="Remover filtro de texto">×</button>
+                      </span>
+                    )}
+                    {selectedGroup !== 'TODOS' && (
+                      <span className="bg-white border border-slate-200 text-slate-700 px-2.5 py-1 rounded-xl font-bold flex items-center gap-1.5 shadow-2xs">
+                        Grupo: {selectedGroup}
+                        <button type="button" onClick={() => { setSelectedGroup('TODOS'); setSelectedTeam('TODOS'); }} className="text-red-500 hover:text-red-750 font-black ml-1 text-sm cursor-pointer" title="Remover filtro de grupo">×</button>
+                      </span>
+                    )}
+                    {selectedTeam !== 'TODOS' && (
+                      <span className="bg-white border border-slate-200 text-slate-700 px-2.5 py-1 rounded-xl font-bold flex items-center gap-1.5 shadow-2xs">
+                        Seleção: {selectedTeam}
+                        <button type="button" onClick={() => setSelectedTeam('TODOS')} className="text-red-500 hover:text-red-750 font-black ml-1 text-sm cursor-pointer" title="Remover filtro de seleção">×</button>
+                      </span>
+                    )}
+                    {statusFilter !== 'TODOS' && (
+                      <span className="bg-white border border-slate-200 text-slate-700 px-2.5 py-1 rounded-xl font-bold flex items-center gap-1.5 shadow-2xs">
+                        Status: {{ TODOS: 'Todas', missing: 'Falta', repeated: 'Repetida', owned: 'Tenho' }[statusFilter]}
+                        <button type="button" onClick={() => setStatusFilter('TODOS')} className="text-red-500 hover:text-red-750 font-black ml-1 text-sm cursor-pointer" title="Remover filtro de status">×</button>
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchText('');
+                        setSelectedGroup('TODOS');
+                        setSelectedTeam('TODOS');
+                        setStatusFilter('TODOS');
+                      }}
+                      className="ml-auto text-[10px] bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 px-3 py-1.5 rounded-xl font-extrabold uppercase transition tracking-wider flex items-center gap-1 cursor-pointer shadow-2xs"
+                    >
+                      <X className="w-3 h-3 text-red-600" />
+                      Limpar Filtros
+                    </button>
+                  </div>
+                )}
+
                 {/* Organização das Seleções */}
                 <div id="album_organization_card" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-200">
                   <div className="flex flex-col">
@@ -4167,38 +4899,155 @@ export default function App() {
                         {isExpanded && (
                           <div className="p-4 bg-white border-t border-slate-100 flex flex-col gap-3.5">
                             
-                            {/* Dynamic Team Quick Mark Row */}
-                            <div className="flex items-center justify-between flex-wrap gap-2 text-xs border-b border-dashed border-slate-200 pb-2.5">
-                              <span className="font-extrabold text-slate-500 text-[10px] uppercase tracking-wide">Lote para {cat.name}:</span>
-                              <div className="flex gap-1.5 flex-wrap">
-                                <button
-                                  type="button"
-                                  onClick={() => handleBulkSetTeam(teamCode, 'missing')}
-                                  disabled={bulkLoading}
-                                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-850 text-[10px] font-black rounded-lg transition tracking-wide uppercase cursor-pointer"
-                                  title="Marcar todas as figurinhas desta seleção como Falta"
-                                >
-                                  Marcar Falta Todas 📍
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleBulkSetTeam(teamCode, 'repeated')}
-                                  disabled={bulkLoading}
-                                  className="px-2 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-850 text-[10px] font-black rounded-lg transition tracking-wide uppercase cursor-pointer"
-                                  title="Marcar todas as figurinhas desta seleção como Repetidas"
-                                >
-                                  Marcar Repetida Todas 🔄
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleBulkSetTeam(teamCode, 'owned')}
-                                  disabled={bulkLoading}
-                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-850 text-[10px] font-black rounded-lg transition tracking-wide uppercase cursor-pointer"
-                                  title="Marcar todas as figurinhas desta seleção como Tenho"
-                                >
-                                  Marcar Tenho Todas ✔️
-                                </button>
-                              </div>
+                            {/* Dynamic Team Quick Mark Row with batch/rapid selectors */}
+                            <div className="flex items-center justify-between flex-wrap gap-2 text-xs border-b border-dashed border-slate-200 pb-2.5 min-h-[48px]">
+                              {bulkEditTeamCode === teamCode && bulkEditMode ? (
+                                <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/70 border border-emerald-200/80 p-3 rounded-xl animate-fadeIn">
+                                  <div className="flex items-center gap-2">
+                                    <span className="flex h-2.5 w-2.5 relative">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                                    </span>
+                                    <span className="text-[11px] font-extrabold text-slate-700">
+                                      Lote Rápido ({bulkEditMode === 'owned' ? 'Tenho ✔️' : 'Falta 📍'}): Clique nas figurinhas do grid para selecionar. 
+                                      <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-850 font-black">
+                                        {Object.values(bulkEditSelectedIds).filter(Boolean).length} selecionadas
+                                      </span>
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                                    {bulkEditConfirmActive ? (
+                                      <div className="flex items-center gap-2 bg-white/95 border border-emerald-300 p-1 rounded-lg shadow-xs">
+                                        <span className="text-[9px] font-black text-emerald-800 px-1 uppercase">Confirmar?</span>
+                                        <button
+                                          type="button"
+                                          onClick={handleBulkEditSubmit}
+                                          disabled={bulkLoading}
+                                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black rounded-md uppercase cursor-pointer"
+                                        >
+                                          Sim ✔️
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setBulkEditConfirmActive(false)}
+                                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[9px] font-black rounded-md uppercase cursor-pointer"
+                                        >
+                                          Não
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => setBulkEditConfirmActive(true)}
+                                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg transition uppercase cursor-pointer shadow-xs"
+                                        >
+                                          Marcar ✔️
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setBulkEditTeamCode(null);
+                                            setBulkEditMode(null);
+                                            setBulkEditSelectedIds({});
+                                            setBulkEditConfirmActive(false);
+                                          }}
+                                          className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-black rounded-lg transition uppercase cursor-pointer"
+                                        >
+                                          Cancelar ❌
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : bulkConfirm?.teamCode === teamCode ? (
+                                <div className="w-full flex items-center justify-between gap-3 bg-amber-50/80 border border-amber-200 p-3 rounded-xl animate-fadeIn">
+                                  <span className="text-[11px] font-extrabold text-amber-900">
+                                    ⚠️ Marcar TODAS as figurinhas desta seleção como {bulkConfirm.action === 'owned' ? 'Tenho' : bulkConfirm.action === 'repeated' ? 'Repetida' : 'Falta'}?
+                                  </span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        await handleBulkSetTeam(teamCode, bulkConfirm.action);
+                                        setBulkConfirm(null);
+                                      }}
+                                      disabled={bulkLoading}
+                                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black rounded-lg transition uppercase cursor-pointer"
+                                    >
+                                      Confirmar ✔️
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setBulkConfirm(null)}
+                                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-750 text-[10px] font-black rounded-lg transition uppercase cursor-pointer"
+                                    >
+                                      Cancelar
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between flex-wrap gap-2 text-xs w-full">
+                                  <span className="font-extrabold text-slate-500 text-[10px] uppercase tracking-wide">Lote para {cat.name}:</span>
+                                  <div className="flex gap-1.5 flex-wrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setBulkEditTeamCode(teamCode);
+                                        setBulkEditMode('owned');
+                                        setBulkEditSelectedIds({});
+                                        setBulkEditConfirmActive(false);
+                                      }}
+                                      className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold rounded-lg transition tracking-wide uppercase cursor-pointer flex items-center gap-1 shadow-xs"
+                                      title="Selecione figurinhas nesta equipe para marcar de uma vez como Tenho"
+                                    >
+                                      Tenho ✍️
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setBulkEditTeamCode(teamCode);
+                                        setBulkEditMode('missing');
+                                        setBulkEditSelectedIds({});
+                                        setBulkEditConfirmActive(false);
+                                      }}
+                                      className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-extrabold rounded-lg transition tracking-wide uppercase cursor-pointer flex items-center gap-1 shadow-xs"
+                                      title="Selecione figurinhas nesta equipe para marcar de uma vez como Falta"
+                                    >
+                                      Falta ✍️
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setBulkConfirm({ teamCode, action: 'missing' })}
+                                      disabled={bulkLoading}
+                                      className="px-2 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 text-amber-850 text-[10px] font-black rounded-lg transition tracking-wide uppercase cursor-pointer"
+                                      title="Marcar todas as figurinhas desta seleção como Falta"
+                                    >
+                                      Falta Todas 📍
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setBulkConfirm({ teamCode, action: 'repeated' })}
+                                      disabled={bulkLoading}
+                                      className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 text-blue-850 text-[10px] font-black rounded-lg transition tracking-wide uppercase cursor-pointer"
+                                      title="Marcar todas as figurinhas desta seleção como Repetidas"
+                                    >
+                                      Repetida Todas 🔄
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setBulkConfirm({ teamCode, action: 'owned' })}
+                                      disabled={bulkLoading}
+                                      className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 text-emerald-850 text-[10px] font-black rounded-lg transition tracking-wide uppercase cursor-pointer"
+                                      title="Marcar todas as figurinhas desta seleção como Tenho"
+                                    >
+                                      Tenho Todas ✔️
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                              {/* Numbered grid of Squares or high-density list based on viewMode */}
@@ -4227,13 +5076,35 @@ export default function App() {
                                    const isSelected = sticker.id === activeStickerId;
 
                                    // Colors representing statuses beautifully matching reference strategy
+                                   const isBulkSelected = !!bulkEditSelectedIds[sticker.id];
                                    let bgStyle = 'bg-slate-50 border-slate-200 text-slate-455 hover:bg-slate-100 hover:text-slate-700'; 
-                                   if (isStickerOwned) {
-                                     bgStyle = 'bg-gradient-to-tr from-emerald-50/60 to-teal-50/60 border-emerald-400 text-emerald-950';
-                                   } else if (state?.status === 'missing') {
-                                     bgStyle = 'bg-amber-50/70 border-amber-350 text-amber-900';
-                                   } else if (isStickerRepeated) {
-                                     bgStyle = 'bg-emerald-50 border-emerald-400 text-emerald-950';
+                                   
+                                   if (bulkEditTeamCode === teamCode && bulkEditMode) {
+                                     if (isBulkSelected) {
+                                       if (bulkEditMode === 'owned') {
+                                         bgStyle = 'bg-emerald-500 border-emerald-600 text-white font-black ring-2 ring-offset-1 ring-emerald-500 scale-103 shadow-md';
+                                       } else {
+                                         bgStyle = 'bg-amber-500 border-amber-600 text-white font-black ring-2 ring-offset-1 ring-amber-500 scale-103 shadow-md';
+                                       }
+                                     } else {
+                                       if (isStickerOwned) {
+                                         bgStyle = 'bg-emerald-50/30 border-emerald-200 text-emerald-700/60 opacity-50';
+                                       } else if (state?.status === 'missing') {
+                                         bgStyle = 'bg-amber-50/30 border-amber-200 text-amber-700/60 opacity-50';
+                                       } else if (isStickerRepeated) {
+                                         bgStyle = 'bg-emerald-50/30 border-emerald-200 text-emerald-700/60 opacity-50';
+                                       } else {
+                                         bgStyle = 'bg-slate-50 border-slate-150 text-slate-350 opacity-40';
+                                       }
+                                     }
+                                   } else {
+                                     if (isStickerOwned) {
+                                       bgStyle = 'bg-gradient-to-tr from-emerald-50/60 to-teal-50/60 border-emerald-400 text-emerald-950';
+                                     } else if (state?.status === 'missing') {
+                                       bgStyle = 'bg-amber-50/70 border-amber-350 text-amber-900';
+                                     } else if (isStickerRepeated) {
+                                       bgStyle = 'bg-emerald-50 border-emerald-400 text-emerald-950';
+                                     }
                                    }
 
                                    return (
@@ -4241,7 +5112,14 @@ export default function App() {
                                        key={sticker.id}
                                        type="button"
                                        onClick={() => {
-                                         setSelectedStickerByTeam(prev => ({ ...prev, [teamCode]: sticker.id }));
+                                         if (bulkEditTeamCode === teamCode && bulkEditMode) {
+                                           setBulkEditSelectedIds(prev => ({
+                                             ...prev,
+                                             [sticker.id]: !prev[sticker.id]
+                                           }));
+                                         } else {
+                                            setSelectedStickerByTeam(prev => ({ ...prev, [teamCode]: sticker.id }));
+                                          }
                                        }}
                                        className={`aspect-square flex flex-col items-center justify-center rounded-xl font-mono text-center relative border transition cursor-pointer select-none ${bgStyle} ${
                                          isSelected 
@@ -4251,17 +5129,31 @@ export default function App() {
                                      >
                                        <span className="text-xs font-bold">{sticker.number}</span>
                                        
-                                       {/* Small corner tags for quick inspection */}
-                                       {isStickerOwned && (
-                                         <span className="absolute top-1 right-1 text-[8px] bg-emerald-500 text-white w-3 h-3 rounded-full flex items-center justify-center font-bold">✔️</span>
-                                       )}
-                                       {isStickerMissing && (
-                                         <span className="absolute top-1 right-1 text-[9px]" title="Falta">📍</span>
-                                       )}
-                                       {isStickerRepeated && (
-                                         <span className="absolute top-0.5 right-0.5 bg-emerald-600 text-white text-[8px] px-1 py-0 rounded font-sans font-black shadow-xs">
-                                           +{state.quantity || 1}
-                                         </span>
+                                       {/* Small corner tags for quick inspection / bulk status */}
+                                       {bulkEditTeamCode === teamCode && bulkEditMode ? (
+                                         isBulkSelected ? (
+                                           <span className="absolute top-1 right-1 text-[8px] bg-white text-slate-900 w-4 h-4 rounded-full flex items-center justify-center font-black shadow-xs">
+                                             {bulkEditMode === 'owned' ? '✔️' : '📍'}
+                                           </span>
+                                         ) : (
+                                           <span className="absolute top-1 right-1 text-[8px] border border-slate-300 bg-white/70 text-slate-400 w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                                             +
+                                           </span>
+                                         )
+                                       ) : (
+                                         <>
+                                           {isStickerOwned && (
+                                             <span className="absolute top-1 right-1 text-[8px] bg-emerald-500 text-white w-3 h-3 rounded-full flex items-center justify-center font-bold">✔️</span>
+                                           )}
+                                           {isStickerMissing && (
+                                             <span className="absolute top-1 right-1 text-[9px]" title="Falta">📍</span>
+                                           )}
+                                           {isStickerRepeated && (
+                                             <span className="absolute top-0.5 right-0.5 bg-emerald-600 text-white text-[8px] px-1 py-0 rounded font-sans font-black shadow-xs">
+                                               +{state.quantity || 1}
+                                             </span>
+                                           )}
+                                         </>
                                        )}
                                      </button>
                                    );
@@ -4303,7 +5195,14 @@ export default function App() {
                                        key={sticker.id}
                                        type="button"
                                        onClick={() => {
-                                         setSelectedStickerByTeam(prev => ({ ...prev, [teamCode]: sticker.id }));
+                                          if (bulkEditTeamCode === teamCode && bulkEditMode) {
+                                            setBulkEditSelectedIds(prev => ({
+                                              ...prev,
+                                              [sticker.id]: !prev[sticker.id]
+                                            }));
+                                          } else {
+                                            setSelectedStickerByTeam(prev => ({ ...prev, [teamCode]: sticker.id }));
+                                          }
                                        }}
                                        className={`flex items-center justify-between px-3.5 py-2 rounded-xl text-left text-xs border transition cursor-pointer select-none min-h-[44px] ${bgStyle} ${
                                          isSelected 
@@ -5201,6 +6100,30 @@ export default function App() {
                 <p className="text-xs text-slate-500 mt-1 font-medium">Configure suas informações de contato para que outros trocadores possam falar diretamente com você.</p>
               </div>
 
+              {(!user?.whatsapp || !user.whatsapp.trim()) && (
+                <motion.div 
+                  id="whatsapp-missing-banner"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 bg-amber-50/70 border border-amber-200 text-amber-900 rounded-xl flex items-start gap-3 shadow-2xs"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0 text-amber-600 animate-pulse text-lg select-none">
+                    📱
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-extrabold text-xs text-amber-950 flex items-center gap-1.5">
+                      Falta pouco para seu perfil ficar completo! ✨
+                    </h4>
+                    <p className="text-[11px] mt-1 font-semibold leading-relaxed text-amber-850">
+                      Cadastre seu <strong className="text-amber-950 font-black">WhatsApp</strong> para aumentar consideravelmente suas chances de troca. A grande maioria dos colecionadores dá total preferência para o contato direto para agilizar as negociações de figurinhas!
+                    </p>
+                    <p className="text-[10px] mt-1.5 font-bold text-amber-700 flex items-center gap-1">
+                      🎁 Conquista Exclusiva: Ganhe a conquista <span className="underline decoration-wavy decoration-amber-500">Conexão Ativa (+30 pts)</span> ao cadastrar seu número!
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+
               {(() => {
                 const getInactiveDays = (dateStr: string): number => {
                   try {
@@ -5321,24 +6244,37 @@ export default function App() {
                 );
               })()}
 
-              <div className="max-w-md space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start w-full">
                 
-                {/* Visual Avatar */}
-                <div className="flex items-center gap-4 bg-slate-50 p-4 border border-slate-205 rounded-xl">
-                  <img 
-                    src={user.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.uid}`} 
-                    alt="avatar" 
-                    className="w-16 h-16 rounded-xl bg-white border border-slate-250 shadow shadow-slate-900/5"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div>
-                    <h3 className="font-extrabold text-sm text-slate-800">{user.displayName}</h3>
-                    <p className="text-xs text-slate-500 font-mono font-medium">{user.email}</p>
-                    <div className="inline-flex mt-2 items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-250 text-emerald-800 text-[9px] font-mono font-bold">
-                      ID: {user.uid.slice(0, 8)}... (Ativo)
+                {/* Coluna Esquerda: Dados de Perfil & Configurações */}
+                <div className="space-y-6 w-full">
+                  
+                  {/* Visual Avatar */}
+                  <div className="flex items-center gap-4 bg-slate-50 p-4 border border-slate-205 rounded-xl">
+                    <img 
+                      src={user.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.uid}`} 
+                      alt="avatar" 
+                      className="w-16 h-16 rounded-xl bg-white border border-slate-250 shadow shadow-slate-900/5"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div>
+                      <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+                        {user.displayName}
+                        {rarestAchievement && (
+                          <span 
+                            className="inline-flex text-base animate-bounce cursor-help" 
+                            title={`Sua conquista mais rara: ${rarestAchievement.title} (+${rarestAchievement.points} pts)`}
+                          >
+                            {rarestAchievement.icon}
+                          </span>
+                        )}
+                      </h3>
+                      <p className="text-xs text-slate-500 font-mono font-medium">{user.email}</p>
+                      <div className="inline-flex mt-2 items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-250 text-emerald-800 text-[9px] font-mono font-bold">
+                        ID: {user.uid.slice(0, 8)}... (Ativo)
+                      </div>
                     </div>
                   </div>
-                </div>
 
                 {/* Profile Form (Merges / Updates on the current Profile metadata) */}
                 <form 
@@ -5645,6 +6581,73 @@ export default function App() {
                       </form>
                     )}
                   </div>
+                </div>
+
+              </div> {/* Fim da Coluna Esquerda */}
+
+              {/* Coluna Direita: Conquistas de Álbum */}
+                <div className="space-y-6 w-full">
+                  {(() => {
+                    const achievements = getMyAchievements(myStickers, user);
+                    const unlockedCount = achievements.filter(a => a.unlocked).length;
+                    const totalPoints = achievements.filter(a => a.unlocked).reduce((sum, a) => sum + a.points, 0);
+
+                    return (
+                      <div className="bg-slate-50/75 p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-5">
+                        <div>
+                          <h3 className="text-sm font-extrabold text-slate-950 flex items-center gap-1.5 border-b border-slate-200 pb-3">
+                            <Trophy className="w-4 h-4 text-amber-500" /> Suas Conquistas de Álbum 🎖️
+                          </h3>
+                          
+                          {/* Stats Summary Bar */}
+                          <div className="mt-4 grid grid-cols-2 gap-4 bg-white p-3 rounded-xl border border-slate-150 shadow-2xs">
+                            <div className="text-center border-r border-slate-100">
+                              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Desbloqueadas</span>
+                              <span className="text-lg font-black text-slate-800">{unlockedCount} de {achievements.length}</span>
+                            </div>
+                            <div className="text-center">
+                              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Pontos Totais</span>
+                              <span className="text-lg font-black text-amber-600">{totalPoints} <span className="text-xs text-slate-400 font-medium">pts</span></span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* List of achievements */}
+                        <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                          {achievements.map((ach) => (
+                            <div 
+                              key={ach.id} 
+                              className={`flex items-start gap-3.5 p-3 rounded-xl border transition-all ${
+                                ach.unlocked 
+                                  ? 'bg-emerald-50/40 border-emerald-150 hover:bg-emerald-50/70 shadow-2xs' 
+                                  : 'bg-white border-slate-200 opacity-60'
+                              }`}
+                            >
+                              <div className={`text-2xl p-2 bg-white shadow-3xs rounded-xl border shrink-0 select-none ${
+                                ach.unlocked ? 'border-emerald-200' : 'border-slate-100 grayscale'
+                              }`}>
+                                {ach.unlocked ? ach.icon : '🔒'}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <h4 className="text-xs font-extrabold text-slate-850 leading-snug flex items-center gap-1.5">
+                                    {ach.title}
+                                    {ach.unlocked && (
+                                      <span className="text-[8px] bg-emerald-100 text-emerald-800 font-black px-1.5 rounded-full uppercase py-0.5 border border-emerald-200">
+                                        OK
+                                      </span>
+                                    )}
+                                  </h4>
+                                  <span className="text-[10px] font-black text-amber-600 shrink-0">+{ach.points} pts</span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 mt-1 font-semibold leading-relaxed">{ach.desc}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
               </div>
@@ -5999,76 +7002,78 @@ export default function App() {
       {/* Floating Perfect Match Toast Notifications container */}
       <div 
         id="double-match-toasts"
-        className="fixed bottom-5 right-5 z-50 flex flex-col gap-3 max-w-md w-full pointer-events-none px-4 sm:px-0"
+        className="fixed bottom-5 right-5 z-50 flex flex-col gap-4 max-w-md w-full pointer-events-none px-4 sm:px-0 animate-fadeIn"
       >
-        <AnimatePresence>
-          {toasts.map((toast) => (
-            <motion.div
-              key={toast.id}
-              id={`toast-${toast.id}`}
-              initial={{ opacity: 0, y: 50, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
-              className="pointer-events-auto bg-white border-2 border-amber-400 rounded-xl p-4 shadow-xl flex gap-3 backdrop-blur-md"
-            >
-              <img 
-                src={`https://api.dicebear.com/7.x/identicon/svg?seed=${toast.partnerUid}`} 
-                alt="avatar" 
-                className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-250 self-start shrink-0 animate-pulse"
-                referrerPolicy="no-referrer"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="font-extrabold text-[11px] text-amber-850 flex items-center gap-1.5 uppercase tracking-wider">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 animate-bounce" /> Match Perfeito!
-                  </span>
-                  <button 
-                    id={`btn-close-${toast.id}`}
-                    onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-                    className="text-slate-400 hover:text-slate-650 transition cursor-pointer p-0.5"
-                  >
-                    <Check className="w-4 h-4" />
-                  </button>
-                </div>
-                <p className="font-extrabold text-sm text-slate-800 mt-1 truncate">
-                  {toast.partnerName}
-                </p>
-                <p className="text-xs text-slate-600 mt-1 leading-relaxed font-semibold">
-                  Tem as figurinhas do seu álbum e busca as suas repetidas!
-                </p>
-                 <div className="mt-3 flex flex-wrap gap-2">
-                   {toast.partnerWhatsapp && (
-                     <a
-                       id={`btn-wa-${toast.id}`}
-                       href={buildDoubleMatchWhatsappLink(
-                         toast.partnerWhatsapp,
-                         toast.partnerName,
-                         toast.myRepeated || [],
-                         toast.myMissing || []
-                       )}
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
-                       onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-                     >
-                       <Phone className="w-3 h-3 text-white" /> WhatsApp
-                     </a>
-                   )}
-                   <button
-                     id={`btn-view-${toast.id}`}
-                     onClick={() => {
-                       setActiveTab('matches');
-                       setToasts(prev => prev.filter(t => t.id !== toast.id));
-                     }}
-                     className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition border border-slate-200 cursor-pointer"
-                   >
-                     Ver Trocas
-                   </button>
-                 </div>
+        {(toasts.length > 0 || 
+          Object.values(tradeGaveChecked).some(Boolean) || 
+          Object.values(tradeReceivedChecked).some(Boolean) || 
+          Object.values(bulkEditSelectedIds).some(Boolean)) && (
+          <div className="flex justify-end gap-2 pointer-events-auto flex-wrap">
+            {(Object.values(tradeGaveChecked).some(Boolean) || 
+              Object.values(tradeReceivedChecked).some(Boolean) || 
+              Object.values(bulkEditSelectedIds).some(Boolean)) && (
+              <button
+                id="btn-deselect-all-checked"
+                type="button"
+                onClick={() => {
+                  setTradeGaveChecked({});
+                  setTradeReceivedChecked({});
+                  setBulkEditSelectedIds({});
+                }}
+                className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-250 text-amber-900 text-[10px] font-black rounded-lg shadow-md transition-all duration-200 uppercase cursor-pointer flex items-center gap-1.5"
+                title="Desmarcar todas as figurinhas selecionadas"
+              >
+                <X className="w-3 h-3" />
+                <span>Desmarcar Todos ☑️</span>
+              </button>
+            )}
+            {toasts.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setToasts([])}
+                className="px-3.5 py-1.5 bg-slate-900/95 hover:bg-black border border-slate-800 text-white text-[10px] font-black rounded-lg shadow-md transition-all duration-200 uppercase cursor-pointer flex items-center gap-1.5"
+                title="Dispensar todas as notificações atuais"
+              >
+                <span>Dispensar Todas 🧹</span>
+              </button>
+            )}
+          </div>
+        )}
+        {groupedToasts.map(([categoryKey, group]) => (
+          <div 
+            key={categoryKey} 
+            className={`pointer-events-auto flex flex-col gap-2.5 p-3.5 rounded-[16px] backdrop-blur-md border transition-all duration-300 ${group.containerClass}`}
+          >
+            {/* Group Header */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${group.dotColor} shrink-0 animate-pulse`} />
+                <span className="text-[11px] font-black text-slate-700 tracking-tight uppercase">
+                  {group.title}
+                </span>
               </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+              <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-full shadow-2xs ${group.badgeColor}`}>
+                {group.items.length} {group.items.length === 1 ? 'pendente' : 'pendentes'}
+              </span>
+            </div>
+
+            {/* Toasts within this group */}
+            <div className="flex flex-col gap-2 max-h-[350px] overflow-y-auto pr-0.5 pointer-events-auto">
+              <AnimatePresence initial={false}>
+                {group.items.map((toast) => (
+                  <ToastItem
+                    key={toast.id}
+                    toast={toast}
+                    onClose={(id) => setToasts(prev => prev.filter(t => t.id !== id))}
+                    setActiveTab={setActiveTab}
+                    setActiveChat={setActiveChat}
+                    user={user}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Modal Interativo de Configuração de Impressão */}
