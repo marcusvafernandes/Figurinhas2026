@@ -385,6 +385,7 @@ interface ToastItemProps {
   setActiveTab: (tab: any) => void;
   setActiveChat: (chat: any) => void;
   user: UserProfile | null;
+  onCelebrate?: () => void;
 }
 
 export interface Achievement {
@@ -537,14 +538,15 @@ export function getMyAchievements(myStickers: Record<string, UserSticker | any>,
   ];
 }
 
-const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, setActiveTab, setActiveChat, user }) => {
+const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, setActiveTab, setActiveChat, user, onCelebrate }) => {
   const isMatch = toast.type === 'match';
   const isMessage = toast.type === 'message';
   const isUserChange = toast.type === 'user_change';
   const isSystem = toast.type === 'system';
   const isAchievement = toast.type === 'achievement';
+  const isAlbumComplete = toast.id === 'album-complete-toast';
 
-  const duration = isMatch ? 10000 : isSystem ? 7500 : isUserChange ? 6000 : 8000;
+  const duration = isAlbumComplete ? 15000 : isMatch ? 10000 : isSystem ? 7500 : isUserChange ? 6000 : 8000;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -559,17 +561,23 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, setActiveTab, set
       initial={{ opacity: 0, x: 100, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: 50, scale: 0.9, transition: { duration: 0.2 } }}
-      className={`pointer-events-auto bg-white rounded-xl p-4 shadow-xl flex gap-3 backdrop-blur-md border relative overflow-hidden ${
-        isMatch 
-          ? 'border-2 border-amber-400' 
+      className={`pointer-events-auto rounded-xl p-4 shadow-xl flex gap-3 backdrop-blur-md border relative overflow-hidden ${
+        isAlbumComplete
+          ? 'bg-gradient-to-br from-amber-500/10 via-yellow-450/5 to-emerald-500/10 border-2 border-amber-400 shadow-amber-400/20'
+          : isMatch 
+          ? 'bg-white border-2 border-amber-400' 
           : isAchievement
-          ? 'border-2 border-yellow-500 shadow-yellow-100/50'
+          ? 'bg-white border-2 border-yellow-500 shadow-yellow-100/50'
           : isMessage 
-          ? 'border border-emerald-300' 
-          : 'border border-slate-200'
+          ? 'bg-white border border-emerald-300' 
+          : 'bg-white border border-slate-200'
       }`}
     >
-      {isSystem ? (
+      {isAlbumComplete ? (
+        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-500 border border-yellow-300 flex items-center justify-center shrink-0 self-start text-xl select-none shadow-md animate-bounce">
+          🏆
+        </div>
+      ) : isSystem ? (
         <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0 self-start text-blue-500">
           <AlertCircle className="w-5 h-5" />
         </div>
@@ -587,7 +595,11 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, setActiveTab, set
       )}
       <div className="flex-1 min-w-0 pb-1">
         <div className="flex items-center justify-between gap-1">
-          {isMatch ? (
+          {isAlbumComplete ? (
+            <span className="font-black text-[11px] text-amber-850 flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
+              🌟 CONQUISTA SUPREMA!
+            </span>
+          ) : isMatch ? (
             <span className="font-extrabold text-[11px] text-amber-850 flex items-center gap-1.5 uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 animate-bounce" /> Match Perfeito!
             </span>
@@ -611,9 +623,10 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, setActiveTab, set
           <button 
             id={`btn-close-${toast.id}`}
             onClick={() => onClose(toast.id)}
-            className="text-slate-400 hover:text-slate-650 transition cursor-pointer p-0.5"
+            className="text-slate-400 hover:text-rose-600 transition cursor-pointer p-2 -m-2 shrink-0 rounded-full hover:bg-slate-100 flex items-center justify-center min-w-[36px] min-h-[36px]"
+            title="Fechar"
           >
-            <Check className="w-4 h-4" />
+            <X className="w-4 h-4" />
           </button>
         </div>
         <p className="font-extrabold text-sm text-slate-800 mt-1 truncate">
@@ -658,7 +671,19 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, setActiveTab, set
                 Ver Trocas
               </button>
             )}
-            {isAchievement && (
+            {isAlbumComplete && (
+              <button
+                id={`btn-view-celebration-${toast.id}`}
+                onClick={() => {
+                  if (onCelebrate) onCelebrate();
+                  onClose(toast.id);
+                }}
+                className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white rounded-lg text-[11px] font-black tracking-wide transition border border-amber-600 cursor-pointer shadow-md flex items-center gap-1.5"
+              >
+                🎉 Ver Celebração!
+              </button>
+            )}
+            {isAchievement && !isAlbumComplete && (
               <button
                 id={`btn-view-profile-ach-${toast.id}`}
                 onClick={() => {
@@ -1054,6 +1079,10 @@ export default function App() {
   const [copiedExport, setCopiedExport] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [hasNotifiedComplete, setHasNotifiedComplete] = useState(() => {
+    return localStorage.getItem('copa_stickers_notified_complete') === 'true';
+  });
   const [exportType, setExportType] = useState<'repeated' | 'missing'>('repeated');
   const [statsSubTab, setStatsSubTab] = useState<'meu_album' | 'comunidade'>('meu_album');
   const [isImporting, setIsImporting] = useState(false);
@@ -1065,6 +1094,24 @@ export default function App() {
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const prevDoubleMatchUidsRef = useRef<string[] | null>(null);
   const isSettledRef = useRef<boolean>(false);
+
+  const stableConfettiItems = useMemo(() => {
+    return Array.from({ length: 65 }).map((_, i) => {
+      const left = Math.random() * 100;
+      const delay = Math.random() * 5;
+      const duration = 3.5 + Math.random() * 4.5;
+      const size = 6 + Math.random() * 10;
+      const rotateStart = Math.random() * 360;
+      const rotateEnd = rotateStart + 360 + Math.random() * 720;
+      const colors = [
+        'bg-amber-400', 'bg-yellow-400', 'bg-emerald-400', 
+        'bg-teal-400', 'bg-rose-400', 'bg-amber-300', 'bg-yellow-300', 'bg-emerald-300', 'bg-sky-400'
+      ];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const isCircle = Math.random() > 0.55;
+      return { id: i, left, delay, duration, size, color, isCircle, rotateStart, rotateEnd };
+    });
+  }, []);
 
   // Checklist Print States
   const [showPrintChecklist, setShowPrintChecklist] = useState(false);
@@ -3287,6 +3334,41 @@ export default function App() {
   // If it is unmarked, it means I don't have it tracked yet, or I already have it? 
   // Let's track completion percentage as percentage of stickers we OWN (Owned = totalStickersCount - missing).
   const completionPercentage = Math.round(((totalStickersCount - countedMissing) / totalStickersCount) * 100);
+  const isAlbumFullyComplete = countedMissing === 0;
+
+  useEffect(() => {
+    if (!isSettledRef.current) return;
+    
+    if (isAlbumFullyComplete) {
+      if (!hasNotifiedComplete) {
+        setHasNotifiedComplete(true);
+        localStorage.setItem('copa_stickers_notified_complete', 'true');
+        
+        // Show the beautiful celebration overlay modal!
+        setShowCompletionModal(true);
+        
+        // Trigger a highly specialized golden toast notification
+        const toastId = 'album-complete-toast';
+        setToasts(prev => [
+          {
+            id: toastId,
+            title: '🏆 ÁLBUM COMPLETADO! 🎉',
+            description: 'Sensacional! Você atingiu 100% de progresso no seu álbum de figurinhas da Copa 2026! Clique abaixo para comemorar!',
+            partnerUid: 'champion',
+            partnerName: 'Campeão do Álbum',
+            type: 'achievement'
+          },
+          ...prev.filter(t => t.id !== toastId)
+        ]);
+      }
+    } else {
+      // Reset if they no longer have the album fully completed
+      if (hasNotifiedComplete) {
+        setHasNotifiedComplete(false);
+        localStorage.removeItem('copa_stickers_notified_complete');
+      }
+    }
+  }, [isAlbumFullyComplete, hasNotifiedComplete]);
 
   // Calculate album progress details grouped by category/team
   const progressBySection = [
@@ -3636,16 +3718,34 @@ export default function App() {
             
             {/* ProgressBar */}
             <div className="mb-4">
-              <div className="flex justify-between items-end text-xs font-mono font-bold mb-1.5">
-                <span className="text-emerald-600">{completionPercentage}% COMPLETO</span>
-                <span className="text-slate-500">{totalStickersCount - countedMissing} / {totalStickersCount}</span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
+              {isAlbumFullyComplete ? (
                 <div 
-                  className="bg-emerald-500 h-full rounded-full transition-all duration-550" 
-                  style={{ width: `${completionPercentage}%` }}
-                ></div>
-              </div>
+                  onClick={() => setShowCompletionModal(true)}
+                  className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 hover:from-amber-600 hover:to-yellow-500 text-white rounded-xl p-2.5 flex items-center justify-between text-xs font-black cursor-pointer shadow-[0_4px_15px_rgba(245,158,11,0.25)] transition border border-yellow-300 animate-pulse active:scale-98"
+                  title="Clique para ver a comemoração novamente! 🎉"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-white animate-bounce" />
+                    ÁLBUM COMPLETADO! 🏆
+                  </span>
+                  <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-[10px] tracking-widest font-black uppercase">
+                    Ver Festa 🎉
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-between items-end text-xs font-mono font-bold mb-1.5">
+                    <span className="text-emerald-600">{completionPercentage}% COMPLETO</span>
+                    <span className="text-slate-500">{totalStickersCount - countedMissing} / {totalStickersCount}</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
+                    <div 
+                      className="bg-emerald-500 h-full rounded-full transition-all duration-550" 
+                      style={{ width: `${completionPercentage}%` }}
+                    ></div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Donut Chart */}
@@ -7215,7 +7315,7 @@ export default function App() {
       {/* Floating Perfect Match Toast Notifications container */}
       <div 
         id="double-match-toasts"
-        className="fixed bottom-5 right-5 z-50 flex flex-col gap-4 max-w-md w-full pointer-events-none px-4 sm:px-0 animate-fadeIn"
+        className="fixed bottom-4 left-4 right-4 md:left-auto md:right-5 md:bottom-5 z-[999] flex flex-col gap-3 max-w-sm md:max-w-md w-auto md:w-full max-h-[85vh] overflow-y-auto pointer-events-none animate-fadeIn"
       >
         {(toasts.length > 0 || 
           Object.values(tradeGaveChecked).some(Boolean) || 
@@ -7281,6 +7381,7 @@ export default function App() {
                     setActiveTab={setActiveTab}
                     setActiveChat={setActiveChat}
                     user={user}
+                    onCelebrate={() => setShowCompletionModal(true)}
                   />
                 ))}
               </AnimatePresence>
@@ -7765,6 +7866,134 @@ export default function App() {
             </button>
           </div>
         </div>
+      </div>
+    )}
+
+    {showCompletionModal && (
+      <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-start justify-center p-4 z-[999] overflow-y-auto py-8 sm:py-12 animate-fadeIn">
+        {/* Render animated falling confetti */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+          {stableConfettiItems.map((item) => (
+            <motion.div
+              key={item.id}
+              className={`absolute top-[-20px] ${item.color} ${item.isCircle ? 'rounded-full' : 'rounded-xs'}`}
+              style={{
+                left: `${item.left}%`,
+                width: `${item.size}px`,
+                height: `${item.size}px`,
+                opacity: 0.85,
+              }}
+              animate={{
+                y: '105vh',
+                rotate: [item.rotateStart, item.rotateEnd],
+              }}
+              transition={{
+                duration: item.duration,
+                delay: item.delay,
+                repeat: Infinity,
+                ease: 'linear',
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Celebration Card */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8, y: 50 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.8, y: 30 }}
+          transition={{ type: 'spring', damping: 15, stiffness: 90 }}
+          className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border-4 border-yellow-400 flex flex-col items-center text-center gap-5 sm:gap-6 relative overflow-hidden text-slate-800 z-20 my-auto"
+        >
+          {/* Absolute Close Button for quick action on short screens */}
+          <button
+            type="button"
+            onClick={() => setShowCompletionModal(false)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-650 transition cursor-pointer p-2 rounded-full hover:bg-slate-100 z-30 min-w-[36px] min-h-[36px] flex items-center justify-center"
+            title="Fechar"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {/* Glowing rotation background effect */}
+          <div className="absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-yellow-100/50 via-amber-50/20 to-white -z-10" />
+
+          {/* Trophy Graphic */}
+          <motion.div 
+            initial={{ scale: 0.3, rotate: -25 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', damping: 10, stiffness: 100, delay: 0.2 }}
+            className="relative mt-2"
+          >
+            <div className="absolute inset-0 bg-yellow-400/40 rounded-full blur-2xl scale-150 animate-pulse" />
+            <div className="bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 p-6 rounded-full text-white shadow-xl border border-yellow-300 relative z-10 flex items-center justify-center">
+              <Trophy className="w-14 h-14 animate-bounce" />
+            </div>
+            <div className="absolute -top-3 -left-4 text-3xl animate-pulse">✨</div>
+            <div className="absolute -bottom-2 -right-4 text-3xl animate-bounce delay-200">🌟</div>
+            <div className="absolute top-2 right-12 text-2xl animate-ping delay-500">✨</div>
+          </motion.div>
+
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1 rounded-full font-black uppercase tracking-widest inline-block self-center">
+              Feito Histórico Desbloqueado! 🔓
+            </span>
+            <h2 className="font-extrabold text-2xl text-slate-900 leading-tight uppercase tracking-tight mt-1">
+              Campeão do Álbum 2026! 🏆
+            </h2>
+            <p className="text-xs text-slate-500 font-bold">
+              Parabéns, {user?.displayName || 'Visitante'}! Você completou 100% do seu álbum!
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-r from-amber-50 to-yellow-50/50 p-4 rounded-2xl border border-amber-200/50 w-full flex flex-col gap-2.5 text-xs text-slate-600 font-semibold leading-relaxed">
+            <p>
+              "Você colou todas as figurinhas oficiais da Copa do Mundo 2026! Cada cromo reflete sua paixão pelo esporte e sua dedicação em fazer trocas incríveis com a comunidade."
+            </p>
+            <div className="border-t border-amber-200/40 my-1.5 pt-2 flex justify-around font-mono text-[11px] font-black text-slate-700">
+              <div className="flex flex-col items-center">
+                <span className="text-amber-600 text-sm">{STICKERS.length}</span>
+                <span className="text-[9px] text-slate-400 uppercase">Figurinhas</span>
+              </div>
+              <div className="border-l border-amber-200/40 h-8" />
+              <div className="flex flex-col items-center">
+                <span className="text-amber-600 text-sm">100%</span>
+                <span className="text-[9px] text-slate-400 uppercase">Completo</span>
+              </div>
+              <div className="border-l border-amber-200/40 h-8" />
+              <div className="flex flex-col items-center">
+                <span className="text-amber-600 text-sm">{totalRepeatedSum}</span>
+                <span className="text-[9px] text-slate-400 uppercase">Repetidas</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2.5 w-full">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const shareText = `🏆 CONSEGUI! Acabo de completar 100% do meu Álbum da Copa do Mundo 2026 com todas as figurinhas coladas! Gerencie a sua coleção e faça trocas comigo em: https://figurinhas2026-rust.vercel.app/`;
+                  await navigator.clipboard.writeText(shareText);
+                  triggerNotification('Sucesso! 🎉', 'Mensagem de campeão copiada para a área de transferência!');
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+              className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-amber-500/15"
+            >
+              <Share2 className="w-4 h-4" />
+              Compartilhar Vitória (Copiar Mensagem)
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCompletionModal(false)}
+              className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200 cursor-pointer"
+            >
+              Fechar e Voltar ao Álbum ⚽
+            </button>
+          </div>
+        </motion.div>
       </div>
     )}
   </>
